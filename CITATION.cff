@@ -1,0 +1,25 @@
+# Note: we use the author alias to record author contributions
+# This is a known limitation of CFF files: https://github.com/citation-file-format/citation-file-format/issues/112
+# Suggested author roles are given here: https://cambiotraining.github.io/quarto-course-template/materials/03-authorship.html#author-roles
+
+cff-version: 1.2.0
+title: "Applied Unsupervised Machine Learning"
+message: >-
+  You may cite these materials using the metadata in this
+  file. Please cite our materials if you publish materials
+  derived from these, run a workshop using them, or use
+  the information in your own work.
+type: dataset
+authors:
+  - given-names: "Soumya"
+    family-names: "Banerjee"
+    affiliation: "University of Cambridge"
+    website: "https://sites.google.com/site/neelsoumya"
+    orcid: "https://orcid.org/0000-0001-7748-9885"
+    alias: "writing - first draft, review & editing; conceptualisation; software"
+  
+repository-code: "https://github.com/cambiotraining/ml-unsupervised"
+url: "https://cambiotraining.github.io/ml-unsupervised/"
+license: CC-BY-4.0
+commit: "FIX: commit hash"
+date-released: "2025-07-28"

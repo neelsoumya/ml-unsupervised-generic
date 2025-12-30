@@ -1,0 +1,32 @@
+---
+title: "References and Resources"
+---
+
+::: {#refs}
+:::
+
+
+
+
+## Resources
+
+[1] [Introduction to Statistical Learning in Python (ISLP) book](https://www.statlearning.com/)
+
+[2] [Video lectures by the authors of the book Introduction to Statistical Learning in Python](https://www.youtube.com/playlist?list=PLoROMvodv4rNHU1-iPeDRH-J0cL-CrIda)
+
+[3] [Visual explanations of machine learning algorithms](https://mlu-explain.github.io)
+
+[4] [How to Use t-SNE Effectively](https://distill.pub/2016/misread-tsne/)
+
+[5] [Slides for the course on unsupervised machine learning](https://drive.google.com/drive/folders/1c8fYDr7ab1jUx0FwOR4NZa9RfgzZN9OQ?usp=sharing)
+
+[6] [Course on introduction to Python](https://cambiotraining.github.io/data-analysis-in-r-and-python/)
+
+[7] [Data visualization in Python using matplotlib and seaborn](https://kavihshah.github.io/Intro-to-Python/materials/13-data-visualisation-with-matplotlib-and-seaborn.html)
+
+[8] [FAQs by the creator of tSNE](https://lvdmaaten.github.io/tsne/#faq)
+
+[9] [Other intricacies of tSNE](https://jlmelville.github.io/smallvis/swisssne.html)
+
+[10] [Explanation of linkage functions](https://blog.quantinsti.com/hierarchical-clustering-python/)
+

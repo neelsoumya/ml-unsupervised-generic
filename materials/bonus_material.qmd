@@ -1,0 +1,184 @@
+---
+title: Mathematical Basics and Additional Material
+---
+
+::: {.callout-tip}
+#### Learning Objectives
+
+- This is bonus material for advanced students/practitioners
+:::
+
+
+## Advanced material
+
+* [3blue1brown videos on eigenvectors](https://www.youtube.com/watch?v=PFDu9oVAE-g)
+
+* [3blue1brown resource of eigenvectors](https://www.3blue1brown.com/lessons/eigenvalues)
+
+* [3blue1brown resource on eigenvalues](https://www.3blue1brown.com/lessons/quick-eigen)
+
+* [Derivations, equations and mathematics for PCA and eigenvectors](https://osf.io/preprints/osf/mnh8d_v1)
+
+* [Github repository with more theoretical material](https://github.com/neelsoumya/public_teaching_unsupervised_learning)
+
+* [Basics of vector algebra](https://github.com/neelsoumya/public_teaching_unsupervised_learning/blob/main/PCA_notes_advanced.pdf)
+
+* [Mathematics for Machine Learning book by Marc Deisenroth](https://mml-book.github.io/book/mml-book.pdf)
+
+* [Introduction to single-cell sequencing analysis](https://www.singlecellcourse.org/)
+
+* [Shallow copy vs. deep copy in Python](https://kavihshah.github.io/Intro-to-Python/materials/06--working-with-composite-data-types.html#shallow-copy-verses-deep-copy)
+
+
+## Mathematical details
+
+
+### Mathematics behind PCA
+
+Here are the key equations involved in Principal Component Analysis (PCA):
+
+**1. Data Centering**
+
+Before applying PCA, the data is typically centered by subtracting the mean of each feature.
+
+$\mathbf{X}_{centered} = \mathbf{X} - \mathbf{\mu}$
+
+where:
+- $\mathbf{X}$ is the original data matrix (samples × features)
+- $\mathbf{\mu}$ is the vector of means for each feature
+- $\mathbf{X}_{centered}$ is the centered data matrix
+
+**Equations**
+
+$PC_{1} = \phi_{1} * X + \phi_{2} * Y + \phi_{3} * Z + ....$
+
+
+* Variance = how spread out the data is.
+* PCA finds directions (principal components) that maximize variance.
+
+**Variance**
+
+::: {.callout-note collapse="true"}
+## Click to expand
+Formula for variance of variable $x$:
+
+$$
+\text{Var}(x) = \frac{1}{n - 1} \sum_{i=1}^{n} (x_i - \bar{x})^2
+$$
+:::
+<!-- end callout --> 
+
+
+**Covariance Matrix**
+
+The covariance matrix captures the relationships between different features.
+
+$\mathbf{\Sigma} = \frac{1}{n-1} \mathbf{X}_{centered}^T \mathbf{X}_{centered}$
+
+where:
+- $\mathbf{\Sigma}$ is the covariance matrix
+- $n$ is the number of samples
+- $\mathbf{X}_{centered}^T$ is the transpose of the centered data matrix
+
+**Eigenvalue Decomposition**
+
+The core of PCA involves finding the eigenvalues and eigenvectors of the covariance matrix.
+
+$\mathbf{\Sigma} \mathbf{v}_i = \lambda_i \mathbf{v}_i$
+
+where:
+- $\mathbf{\Sigma}$ is the covariance matrix
+- $\mathbf{v}_i$ is the $i$-th eigenvector
+- $\lambda_i$ is the $i$-th eigenvalue
+
+The eigenvectors represent the principal components (the directions of maximum variance), and the eigenvalues represent the amount of variance explained by each principal component.
+
+**Selecting Principal Components**
+
+Principal components are typically ordered by their eigenvalues in descending order. You select the top $k$ eigenvectors corresponding to the largest eigenvalues to form the projection matrix.
+
+$\mathbf{W} = [\mathbf{v}_1, \mathbf{v}_2, ..., \mathbf{v}_k]$
+
+where:
+- $\mathbf{W}$ is the projection matrix (features × k)
+- $\mathbf{v}_i$ are the selected eigenvectors (principal components)
+
+**5. Projecting Data onto New Space**
+
+Finally, the centered data is projected onto the new lower-dimensional space defined by the selected principal components.
+
+$\mathbf{Y} = \mathbf{X}_{centered} \mathbf{W}$
+
+where:
+- $\mathbf{Y}$ is the transformed data in the lower-dimensional space (samples × k)
+- $\mathbf{X}_{centered}$ is the centered data matrix
+- $\mathbf{W}$ is the projection matrix
+
+These equations outline the mathematical process of transforming data into a new coordinate system defined by the principal components, ordered by the amount of variance they capture.
+
+
+### Normalization (Z-score Standardization)
+
+Normalization, specifically Z-score standardization, is a data scaling technique that transforms your data to have a mean of 0 and a standard deviation of 1. This is useful for many machine learning algorithms that are sensitive to the scale of input features.
+
+The formula for Z-score is:
+
+$$ z = \frac{x - \mu}{\sigma} $$
+
+Where:
+- $x$ is the original data point.
+- $\mu$ is the mean of the data.
+- $\sigma$ is the standard deviation of the data.
+
+
+
+
+### Details of tSNE
+
+t-Distributed Stochastic Neighbor Embedding (t-SNE) is a dimensionality reduction technique primarily used for visualizing high-dimensional datasets. Unlike linear methods like PCA, t-SNE is particularly good at preserving the local structure of the data, making it effective for revealing clusters and relationships between data points in a lower-dimensional space (typically 2D or 3D).
+
+Here are some key aspects of t-SNE:
+
+*   **Focus on Local Structure:** t-SNE aims to map high-dimensional data points to a lower-dimensional space such that the pairwise similarities between points are preserved. It does this by modeling the probability distribution of pairwise similarities in both the high-dimensional and low-dimensional spaces and minimizing the difference between these distributions. The "t-distributed" part comes from using a heavy-tailed Student's t-distribution in the low-dimensional space to model similarities, which helps to alleviate the "crowding problem" where points from different clusters can be squeezed together.
+
+*   **Non-linear:** t-SNE is a non-linear technique, meaning it can capture complex, non-linear relationships in the data that linear methods might miss. This makes it suitable for visualizing data with intricate structures, such as the manifold-like data often seen in single-cell genomics or image datasets.
+
+*   **Visualization Tool:** While t-SNE can be used for dimensionality reduction, its primary strength lies in creating insightful visualizations. The plots it generates can reveal clusters, outliers, and the overall shape of the data distribution in a way that is often more interpretable than linear methods for complex data.
+
+*   **Perplexity Parameter:** A key parameter in t-SNE is `perplexity`. This parameter can be thought of as a knob that tunes the balance between focusing on local and global structure. It's related to the number of nearest neighbors considered for each point. Choosing an appropriate perplexity is important for obtaining a meaningful visualization, and it often requires some experimentation.
+
+*   **Interpretation Caution:** It's important to interpret t-SNE plots with caution. The distances between clusters in a t-SNE plot may not accurately reflect the true distances in the high-dimensional space. t-SNE is excellent at showing *whether* clusters exist and how points are related within those clusters, but the relative spacing and size of the clusters themselves should not be over-interpreted as precise measures of distance or density in the original data.
+
+In summary, t-SNE is a powerful visualization tool for exploring the structure of high-dimensional data, especially when that structure is non-linear and involves distinct clusters.
+
+
+## Mathematical definition of the Swiss roll dataset
+
+### Parametric definition
+
+$[ x = \phi \cos(\phi),\quad y = \phi \sin(\phi),\quad z = \psi ]$
+
+### Sampling
+
+$\phi$ is drawn uniformly from (1.5$\pi$, 4.5$\pi$) and $\psi$ is drawn uniformly from (0, 50).
+
+- $\phi \sim \mathrm{Uniform}(1.5\pi,\; 4.5\pi)$
+- $\psi \sim \mathrm{Uniform}(0,\; 50)$
+
+
+## Reading papers
+
+* Remember that learning does not stop once you leave class
+
+* You can stay in touch with your group members on `Slack` or `Discord` and discuss the latest papers using the tool `Hypothesis`. You can use this to run your own reading group or hackathon.
+
+* Continue practicing your newly learnt skills on new data.
+
+
+## Summary
+
+::: {.callout-tip}
+#### Key Points
+
+- This section lists some resources for the advanced students and mathematically inclined.
+:::

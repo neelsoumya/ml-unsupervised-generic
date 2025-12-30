@@ -1,0 +1,1574 @@
+---
+title: tSNE
+---
+
+::: {.callout-tip}
+#### Learning Objectives
+
+- Bulleted list of learning objectives
+- Why PCA does not work sometimes
+- The intution around the *curse of dimensionality*
+- What is tSNE?
+- How to use tSNE
+:::
+
+
+<!-- TODO: explain curse better -->
+
+## The curse of dimensionality
+
+In very high-dimensional spaces, almost all the "volume" of a dataset lives near its corners, and pairwise Euclidean distances between points tend to concentrate around a single value. 
+
+
+## Simplified explanations
+
+Think of each cell as a point in a space where each gene’s activity is its own “axis.” When you have only a few genes (low dimensions), you can tell cells apart by how far apart they sit in that space. But as you add more genes, almost every cell ends up about the same distance from every other cell—so you lose any useful sense of “close” or “far.”
+
+
+
+Imagine you're trying to find similar cells in a dataset. As you measure more features (dimensions), it becomes harder to find truly similar cells, even though you have more information.
+
+## Visual Example: Finding Similar Points
+
+### 1 Dimension (1 feature)
+```
+Feature 1: [0]----[1]----[2]----[3]----[4]----[5]
+           A      B      C      D      E      F
+
+Points A and B are close (distance = 1)
+Points A and F are far (distance = 5)
+```
+
+### 2 Dimensions (2 features)
+```
+Feature 2: 5 |     F
+           4 |  E
+           3 |     D
+           2 |  C
+           1 |     B
+           0 |A
+             0  1  2  3  4  5  Feature 1
+
+Points A and B are still close
+Points A and F are still far
+```
+
+### 3+ Dimensions (3+ features)
+```
+Feature 3: 5 |     F
+           4 |  E
+           3 |     D
+           2 |  C
+           1 |     B
+           0 |A
+             0  1  2  3  4  5  Feature 1
+             
+Feature 4, 5, 6... (more dimensions)
+
+As dimensions increase:
+- All points become equally distant from each other
+- "Close" and "far" lose meaning
+- Finding similar cells becomes impossible
+```
+
+## Why This Happens: The "Empty Space" Problem
+
+
+2D Circle - most area near the edge:
+
+```
+    ████████
+  ██••••••██
+ ██••••••••██
+██••••••••••██
+██••••••••••██
+ ██••••••••██
+  ██••••••██
+    ████████
+
+```
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)**: 
+
+* ALL volume concentrates at the "surface"
+The interior becomes essentially EMPTY!
+
+* Your data points all end up at the edges, far apart from each other.
+
+
+:::
+<!-- end callout -->
+
+
+## High-dimensions are counter-intuitive
+
+Counter-intuitive things happen in high dimensions. For example, most of the volume is near the edges!
+
+```{python ch2-tsne-highdimensions-counterintuitive-edges}
+#| warning: false
+#| echo: false
+
+import numpy as np
+import itertools
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (needed for 3D)
+
+# -------- Helpers --------
+def perspective_project_4d_to_3d(points_4d, camera_w=3.5):
+    # Simple perspective projection from 4D -> 3D using w as depth
+    # scale = 1 / (camera_w - w)
+    w = points_4d[:, 3]
+    scale = 1.0 / (camera_w - w)
+    xyz = points_4d[:, :3] * scale[:, None]
+    return xyz
+
+def hamming_distance_one(a, b):
+    return np.count_nonzero(a != b) == 1
+
+# -------- Tesseract (4D hypercube) wireframe projected to 3D --------
+def plot_tesseract(ax, edge_color='tab:blue', alpha=0.9):
+    # Vertices: all combinations of (-1, +1)^4
+    verts_4d = np.array(list(itertools.product([-1, 1], repeat=4)), dtype=float)
+
+    # Build edges between vertices that differ in exactly one coordinate
+    edges = []
+    for i in range(len(verts_4d)):
+        for j in range(i + 1, len(verts_4d)):
+            if hamming_distance_one(verts_4d[i], verts_4d[j]):
+                edges.append((i, j))
+
+    # Project 4D -> 3D
+    verts_3d = perspective_project_4d_to_3d(verts_4d, camera_w=3.5)
+
+    # Plot edges
+    for i, j in edges:
+        xs, ys, zs = zip(verts_3d[i], verts_3d[j])
+        ax.plot(xs, ys, zs, color=edge_color, lw=1.5, alpha=alpha)
+
+    # Plot vertices
+    ax.scatter(verts_3d[:, 0], verts_3d[:, 1], verts_3d[:, 2],
+               s=18, color='k', alpha=0.8)
+
+    ax.set_title("Tesseract (4D hypercube) projected to 3D")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    ax.set_box_aspect([1, 1, 1])
+    ax.grid(True, alpha=0.3)
+
+# -------- 3-sphere (hypersphere in 4D) projected to 3D --------
+def plot_3sphere_points(ax, num_points=3000, color='tab:red', alpha=0.6):
+    # Sample points uniformly on the 3-sphere (unit surface in R^4):
+    # 1) sample standard normals in R^4, 2) normalize to unit length
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(num_points, 4))
+    x /= np.linalg.norm(x, axis=1, keepdims=True)
+
+    # Project 4D -> 3D
+    pts_3d = perspective_project_4d_to_3d(x, camera_w=2.2)
+
+    ax.scatter(pts_3d[:, 0], pts_3d[:, 1], pts_3d[:, 2],
+               s=4, color=color, alpha=alpha, edgecolors='none')
+
+    ax.set_title("3-sphere (hypersphere in 4D) projected to 3D")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    ax.set_box_aspect([1, 1, 1])
+    ax.grid(True, alpha=0.3)
+
+fig = plt.figure(figsize=(12, 5))
+
+ax1 = fig.add_subplot(1, 2, 1, projection='3d')
+plot_tesseract(ax1)
+
+ax2 = fig.add_subplot(1, 2, 2, projection='3d')
+plot_3sphere_points(ax2)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Why k-Means fails:**  
+k-Means tries to draw boundaries around groups by asking “Which centroid (group center) is each cell closest to?” In very high–gene spaces, every cell is nearly the same distance from all centroids. Small moves of the centroids don’t change which cells get assigned to them, so k-Means can’t find real groupings.
+
+**Why t-SNE helps:**  
+t-SNE ignores the idea of absolute distance and instead asks, “Which cells are each cell’s few nearest neighbors?” It builds a map that keeps those local neighborhoods intact. In the final 2D picture, cells that were neighbors in the huge gene space stay neighbors on the screen, while cells that weren’t neighbors get pushed apart. This way, you still see meaningful clusters (e.g., cell types) even when dealing with hundreds or thousands of genes.
+
+## TLDR (Simple explanation)
+
+t-SNE (pronounced "tee-snee") is a tool that helps us look at complex data by making it easier to see patterns.
+
+### Imagine this:
+- You have a big box of mixed beads. Each bead has many features: color, size, shape, weight, etc.
+- It is hard to see how the beads are similar or different just by looking at all these features at once.
+
+### What t-SNE does:
+- t-SNE takes all those features and creates a simple map (like a 2D picture).
+- In this map, beads that are similar to each other are placed close together.
+- Beads that are very different are placed far apart.
+
+
+## Pictorial explanation of tSNE
+
+High-dimensional beads (hard to see groups):
+
+[🔴] [🔵] [🟢] [🟡] [🔴] [🟢] [🔵] [🟡] [🔴] [🟢] [🔵] [🟡]
+
+Each bead has many features (color, size, shape, etc.)
+
+        |
+        v
+
+t-SNE makes a simple 2D map:
+
+[🔴]   [🔴]   [🔴]
+         |      |
+[🔵]   [🔵]   [🔵]
+
+[🟢]   [🟢]   [🟢]
+
+[🟡]   [🟡]   [🟡]
+
+Now, similar beads are grouped together.
+
+
+**In summary:**  
+t-SNE is like a magic tool that turns complicated data into a simple picture, so we can easily see groups and patterns—even if we do not understand the math behind it!
+
+### Why is this useful?
+- It helps us see groups or clusters in our data.
+- We can spot patterns, like which beads are most alike, or if there are outliers.
+- Emphasis on preserving local structure.
+
+## Why t‑SNE Works in High Dimensions
+ - Bypasses global distance concentration by focusing on nearest neighbors.
+
+<!-- TODO: intuition behind tSNE 
+
+TODO: The explanation of t-SNE could be improved. Currently you refer to it as a "magic tool", but the more detailed explanation (in the collapsed box) is very technical and hard to follow. A middle ground with a simple intuitive explanation would help. StatQuest video is excellent for this.
+
+
+TODO: Perplexity is mentioned but not explained, which is worth clarifying.
+
+-->
+
+
+
+::: {.callout-tip collapse="true"}
+
+### The complex explanation
+
+In very high-dimensional spaces, almost all the “volume” of a dataset lives near its corners, and pairwise Euclidean distances between points tend to concentrate around a single value. As dimension $n$ grows, the volume of an inscribed ball in the hypercube $[-1,1]^n$ shrinks toward zero, and the ratio
+
+$$
+\frac{\max d - \min d}{\min d}
+$$
+
+for distances $d$ between random points rapidly approaches zero. Intuitively, “nearest” and “farthest” neighbors become indistinguishable, so any method that relies on global distances (like **k-Means**) loses its ability to meaningfully separate points into clusters.
+
+**k-Means clustering** exemplifies this breakdown: it repeatedly assigns each point to its nearest centroid based on squared-distance comparisons. When all inter-point distances look almost the same, tiny shifts in centroid positions barely affect those assignments, leading to noisy labels and flat optimization landscapes with no clear gradients. In practice, k-Means can “get stuck” or fail to discover any meaningful grouping once dimensions rise into the dozens or hundreds.
+
+**t-SNE** sidesteps these problems by focusing only on **local** similarities rather than global distances. It first converts pairwise distances in the high-dimensional space into a distribution of affinities $p_{ij}$ using Gaussian kernels centered on each point. Then it searches for a low-dimensional embedding whose Student-t affinity distribution $q_{ij}$ best matches $p_{ij}$. By emphasizing the preservation of each point’s nearest neighbors and using a heavy-tailed low-dimensional kernel to push dissimilar points apart, t-SNE highlights local clusters even when global geometry has become uninformative—making it a far more effective visualization and exploratory tool in very high dimensions.
+:::
+<!-- end callout -->
+
+
+## Intuitive explanation of tSNE
+
+[Explanation of tSNE (by StatQuest)](https://www.youtube.com/watch?v=NEaUSP4YerM)
+
+
+## Digging into tSNE
+
+```{python ch3-tsne-diginto-statquest1}
+#| warning: false
+#| echo: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from sklearn.manifold import TSNE
+from sklearn.datasets import make_blobs
+from sklearn.metrics.pairwise import euclidean_distances
+import seaborn as sns
+
+# Set style for better-looking plots
+plt.style.use('seaborn-v0_8')
+sns.set_palette("husl")
+
+def create_high_dimensional_data():
+    """Create synthetic data with 3 clusters in high dimensions"""
+    # Create 3 well-separated clusters in 50 dimensions
+    n_samples = 150
+    n_features = 50
+    
+    # Generate clusters
+    centers = [[0, 0, 0], [5, 5, 5], [-3, 3, -3]]
+    cluster_std = [1.0, 1.0, 1.0]
+    
+    # Create the first 3 dimensions with clear separation
+    X_3d, labels = make_blobs(n_samples=n_samples, centers=centers, 
+                              cluster_std=cluster_std, random_state=42)
+    
+    # Add random noise for the remaining dimensions
+    X_noise = np.random.randn(n_samples, n_features - 3) * 0.5
+    
+    # Combine to create high-dimensional data
+    X_high_dim = np.hstack([X_3d, X_noise])
+    
+    return X_high_dim, labels
+
+def plot_high_dimensional_challenge(X, labels):
+    """Show why high-dimensional data is hard to visualize"""
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    fig.suptitle('The Challenge: High-Dimensional Data is Hard to Visualize', 
+                 fontsize=16, fontweight='bold')
+    
+    # Plot 1: First 2 dimensions
+    scatter1 = axes[0,0].scatter(X[:, 0], X[:, 1], c=labels, cmap='viridis', alpha=0.7, s=50)
+    axes[0,0].set_title('First 2 Dimensions (X vs Y)', fontweight='bold')
+    axes[0,0].set_xlabel('Dimension 1')
+    axes[0,0].set_ylabel('Dimension 2')
+    axes[0,0].grid(True, alpha=0.3)
+    
+    # Plot 2: Dimensions 1 and 3
+    scatter2 = axes[0,1].scatter(X[:, 0], X[:, 2], c=labels, cmap='viridis', alpha=0.7, s=50)
+    axes[0,1].set_title('Dimensions 1 vs 3 (X vs Z)', fontweight='bold')
+    axes[0,1].set_xlabel('Dimension 1')
+    axes[0,1].set_ylabel('Dimension 3')
+    axes[0,1].grid(True, alpha=0.3)
+    
+    # Plot 3: Random pair of dimensions
+    dim1, dim2 = np.random.choice(range(3, 50), 2, replace=False)
+    scatter3 = axes[1,0].scatter(X[:, dim1], X[:, dim2], c=labels, cmap='viridis', alpha=0.7, s=50)
+    axes[1,0].set_title(f'Random Dimensions {dim1} vs {dim2}', fontweight='bold')
+    axes[1,0].set_xlabel(f'Dimension {dim1}')
+    axes[1,0].set_ylabel(f'Dimension {dim2}')
+    axes[1,0].grid(True, alpha=0.3)
+    
+    # Plot 4: Distance distribution
+    distances = euclidean_distances(X[:50, :])  # Use subset for performance
+    distances_flat = distances[np.triu_indices_from(distances, k=1)]
+    
+    axes[1,1].hist(distances_flat, bins=30, alpha=0.7, color='skyblue', edgecolor='black')
+    axes[1,1].set_title('Distribution of Distances Between Points', fontweight='bold')
+    axes[1,1].set_xlabel('Euclidean Distance')
+    axes[1,1].set_ylabel('Frequency')
+    axes[1,1].grid(True, alpha=0.3)
+    
+    # Add text explanation
+    fig.text(0.02, 0.02, 
+             'Problem: In high dimensions, all points appear equally distant!\n'
+             'This is the "curse of dimensionality" - we need t-SNE to help us see patterns.',
+             fontsize=12, style='italic', bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.7))
+    
+    plt.tight_layout()
+    plt.savefig('tsne_high_dim_challenge.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+def plot_similarity_matrix(X, labels):
+    """Show how t-SNE calculates similarities between points"""
+    # Calculate similarities using Gaussian kernel (similar to t-SNE)
+    n_samples = 100  # Use subset for visualization
+    X_subset = X[:n_samples]
+    labels_subset = labels[:n_samples]
+    
+    # Calculate pairwise distances
+    distances = euclidean_distances(X_subset)
+    
+    # Convert to similarities using Gaussian kernel
+    sigma = np.median(distances)  # Bandwidth parameter
+    similarities = np.exp(-distances**2 / (2 * sigma**2))
+    
+    # Create the plot
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    fig.suptitle('Step 1: t-SNE Calculates Similarities Between All Points', 
+                 fontsize=16, fontweight='bold')
+    
+    # Plot 1: Similarity matrix heatmap
+    im1 = ax1.imshow(similarities, cmap='viridis', aspect='auto')
+    ax1.set_title('Similarity Matrix Heatmap', fontweight='bold')
+    ax1.set_xlabel('Point Index')
+    ax1.set_ylabel('Point Index')
+    
+    # Add colorbar
+    cbar1 = plt.colorbar(im1, ax=ax1)
+    cbar1.set_label('Similarity Score')
+    
+    # Plot 2: Similarity distribution
+    similarities_flat = similarities[np.triu_indices_from(similarities, k=1)]
+    ax2.hist(similarities_flat, bins=30, alpha=0.7, color='lightgreen', edgecolor='black')
+    ax2.set_title('Distribution of Similarity Scores', fontweight='bold')
+    ax2.set_xlabel('Similarity Score')
+    ax2.set_ylabel('Frequency')
+    ax2.grid(True, alpha=0.3)
+    
+    # Add explanation
+    # TODO: have this text in the main document as well
+    fig.text(0.02, 0.02, 
+             't-SNE calculates how similar each point is to every other point.\n'
+             'High values (bright colors) = very similar points\n'
+             'Low values (dark colors) = very different points',
+             fontsize=12, style='italic', bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.7))
+    
+    plt.tight_layout()
+    plt.savefig('tsne_similarity_matrix.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+def plot_tsne_iterations(X, labels):
+    """Show t-SNE optimization process step by step"""
+    # Use subset for faster computation
+    n_samples = 100
+    X_subset = X[:n_samples]
+    labels_subset = labels[:n_samples]
+    
+    # Run t-SNE with different numbers of iterations
+    iterations = [250, 400, 500, 600, 800, 1000]
+    
+    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    fig.suptitle('t-SNE Optimization Process: From Random to Organized', 
+                 fontsize=16, fontweight='bold')
+    
+    for i, n_iter in enumerate(iterations):
+        row = i // 3
+        col = i % 3
+        
+        if n_iter == 0:
+            # Random initialization
+            np.random.seed(42)
+            X_2d = np.random.randn(n_samples, 2) * 2
+            title = 'Random Start'
+        else:
+            # Run t-SNE
+            tsne = TSNE(n_components=2, max_iter=n_iter, random_state=42, 
+                        perplexity=30, learning_rate='auto')
+            X_2d = tsne.fit_transform(X_subset)
+            title = f'After {n_iter} iterations'
+        
+        # Plot
+        scatter = axes[row, col].scatter(X_2d[:, 0], X_2d[:, 1], c=labels_subset, 
+                                       cmap='viridis', alpha=0.7, s=60)
+        axes[row, col].set_title(title, fontweight='bold')
+        axes[row, col].set_xlabel('t-SNE 1')
+        axes[row, col].set_ylabel('t-SNE 2')
+        axes[row, col].grid(True, alpha=0.3)
+        
+        # Remove axis ticks for cleaner look
+        axes[row, col].set_xticks([])
+        axes[row, col].set_yticks([])
+    
+    # Add explanation
+    fig.text(0.02, 0.02, 
+             'Watch how t-SNE gradually organizes the data:\n'
+             '1. Random chaos → 2. Points start moving → 3. Clusters form → 4. Clear separation!',
+             fontsize=12, style='italic', bbox=dict(boxstyle="round,pad=0.3", facecolor="lightcoral", alpha=0.7))
+    
+    plt.tight_layout()
+    plt.savefig('tsne_iterations.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+def plot_perplexity_effect(X, labels):
+    """Show how different perplexity values affect t-SNE results"""
+    perplexities = [5, 15, 30, 50]
+    
+    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+    fig.suptitle('Perplexity Effect: How Many Neighbors to Consider?', 
+                 fontsize=16, fontweight='bold')
+    
+    for i, perplexity in enumerate(perplexities):
+        row = i // 2
+        col = i % 2
+        
+        # Run t-SNE with different perplexity
+        tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42, 
+                    max_iter=1000, learning_rate='auto')
+        X_2d = tsne.fit_transform(X[:100])  # Use subset for speed
+        
+        # Plot
+        scatter = axes[row, col].scatter(X_2d[:, 0], X_2d[:, 1], c=labels[:100], 
+                                       cmap='viridis', alpha=0.7, s=60)
+        axes[row, col].set_title(f'Perplexity = {perplexity}', fontweight='bold')
+        axes[row, col].set_xlabel('t-SNE 1')
+        axes[row, col].set_ylabel('t-SNE 2')
+        axes[row, col].grid(True, alpha=0.3)
+        
+        # Remove axis ticks
+        axes[row, col].set_xticks([])
+        axes[row, col].set_yticks([])
+    
+    # Add explanation
+    fig.text(0.02, 0.02, 
+             'Perplexity controls how many neighbors each point considers:\n'
+             '• Low (5-15): Many small clusters, preserves local structure\n'
+             '• High (30-50): Fewer, larger clusters, more global view',
+             fontsize=12, style='italic', bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow", alpha=0.7))
+    
+    plt.tight_layout()
+    plt.savefig('tsne_perplexity_effect.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+def create_tsne_animation(X, labels):
+    """Create an animated visualization of t-SNE optimization"""
+    # Use subset for animation
+    n_samples = 80
+    X_subset = X[:n_samples]
+    labels_subset = labels[:n_samples]
+    
+    # Run t-SNE with many iterations to capture intermediate steps
+    tsne = TSNE(n_components=2, max_iter=1000, random_state=42, 
+                perplexity=30, learning_rate='auto', method='exact')
+    
+    # We'll simulate the process by running t-SNE multiple times with different iterations
+    iterations = np.linspace(250, 1000, 20, dtype=int)
+    positions = []
+    
+    for n_iter in iterations:
+        if n_iter == 0:
+            # Random start
+            np.random.seed(42)
+            pos = np.random.randn(n_samples, 2) * 2
+        else:
+            # Run t-SNE
+            tsne_temp = TSNE(n_components=2, max_iter=n_iter, random_state=42, 
+                            perplexity=30, learning_rate='auto', method='exact')
+            pos = tsne_temp.fit_transform(X_subset)
+        positions.append(pos)
+    
+    # Create animation
+    fig, ax = plt.subplots(figsize=(10, 8))
+    fig.suptitle('t-SNE Animation: Watch the Magic Happen!', fontsize=16, fontweight='bold')
+    
+    scatter = ax.scatter([], [], c=labels_subset, cmap='viridis', alpha=0.7, s=80)
+    ax.set_xlim(-3, 3)
+    ax.set_ylim(-3, 3)
+    ax.set_xlabel('t-SNE 1')
+    ax.set_ylabel('t-SNE 2')
+    ax.grid(True, alpha=0.3)
+    
+    def animate(frame):
+        pos = positions[frame]
+        scatter.set_offsets(pos)
+        ax.set_title(f'Iteration {iterations[frame]}', fontweight='bold')
+        return scatter,
+    
+    anim = animation.FuncAnimation(fig, animate, frames=len(iterations), 
+                                 interval=500, blit=True, repeat=True)
+    
+    # Add explanation
+    fig.text(0.02, 0.02, 
+             'Watch how t-SNE gradually organizes your data from random chaos to clear patterns!\n'
+             'This is the core magic of t-SNE: preserving local relationships while revealing structure.',
+             fontsize=11, style='italic', bbox=dict(boxstyle="round,pad=0.3", facecolor="lightpink", alpha=0.7))
+    
+    plt.tight_layout()
+    
+    # Save animation
+    anim.save('tsne_animation.gif', writer='pillow', fps=2, dpi=100)
+    plt.show()
+    
+    return anim
+
+    
+# Generate data
+X, labels = create_high_dimensional_data()
+    
+# Create all visualizations
+plot_high_dimensional_challenge(X, labels)
+plot_similarity_matrix(X, labels)
+plot_tsne_iterations(X, labels)
+plot_perplexity_effect(X, labels)
+
+```
+
+---
+
+## tSNE works iteratively
+
+tSNE works iteratively to find similar points and brings them together. This is similar to _clustering_ which we will encounter later.
+
+tSNE gradually moves points to preserve neighborhoods. 🎯 Similar points are pulled together, different cells pushed apart.
+
+<!-- TODO: get animation to work. Needs pip install pillow -->
+
+```{python ch2-tsne-iterative-explanation-code}
+#| warning: false
+#| echo: false
+
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.patches as mpatches
+from matplotlib.animation import FuncAnimation
+import matplotlib.patheffects as path_effects
+
+# Figure 4: Iterative Optimization (can be animated or shown as static frames)
+
+def create_optimization_animation(save_gif=False):
+    """Create an animation showing t-SNE optimization process"""
+    
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Starting positions (random)
+    start_positions = np.array([
+        [2, 6],  # Cell 1 (red)
+        [8, 2],  # Cell 2 (red) 
+        [1, 3],  # Cell 3 (blue)
+        [7, 7],  # Cell 4 (blue)
+        [5, 4],  # Cell 5 (green)
+        [3, 1]   # Cell 6 (orange)
+    ])
+    
+    # Final positions (clustered)
+    end_positions = np.array([
+        [2, 6],    # Cell 1 (red cluster)
+        [2.8, 6.5], # Cell 2 (red cluster)
+        [6, 5.5],  # Cell 3 (blue cluster)
+        [6.7, 6],  # Cell 4 (blue cluster) 
+        [4, 2],    # Cell 5 (separate)
+        [7, 1.5]   # Cell 6 (separate)
+    ])
+    
+    colors = ['#e74c3c', '#e74c3c', '#3498db', '#3498db', '#2ecc71', '#f39c12']
+    cell_names = ['Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5', 'Cell 6']
+    
+    def animate(frame):
+        ax.clear()
+        
+        # Calculate interpolated positions
+        progress = frame / 100.0
+        # Use smooth easing function
+        smooth_progress = 0.5 * (1 - np.cos(np.pi * progress))
+        
+        current_positions = start_positions + (end_positions - start_positions) * smooth_progress
+        
+        # Draw cells
+        for i, (pos, color, name) in enumerate(zip(current_positions, colors, cell_names)):
+            circle = plt.Circle(pos, 0.25, color=color, alpha=0.8, zorder=2)
+            ax.add_patch(circle)
+            ax.text(pos[0], pos[1]-0.6, name, ha='center', va='top', 
+                   fontweight='bold', fontsize=10)
+        
+        # Draw arrows showing movement
+        if frame > 10:  # Start showing arrows after a few frames
+            for i, (start, current) in enumerate(zip(start_positions, current_positions)):
+                if np.linalg.norm(current - start) > 0.1:  # Only if significant movement
+                    ax.arrow(start[0], start[1], 
+                            current[0] - start[0], current[1] - start[1],
+                            head_width=0.15, head_length=0.15, 
+                            fc='gray', ec='gray', alpha=0.5, linestyle='--')
+        
+        # Show clustering at the end
+        if progress > 0.7:
+            # Draw cluster boundaries
+            if progress > 0.8:
+                # Red cluster
+                red_center = np.mean([current_positions[0], current_positions[1]], axis=0)
+                cluster1 = plt.Circle(red_center, 0.6, fill=False, 
+                                    edgecolor='#e74c3c', linestyle='--', linewidth=2, alpha=0.7)
+                ax.add_patch(cluster1)
+                ax.text(red_center[0], red_center[1] - 1, 'Type A Cluster', 
+                       ha='center', fontsize=10, weight='bold', color='#e74c3c')
+                
+                # Blue cluster  
+                blue_center = np.mean([current_positions[2], current_positions[3]], axis=0)
+                cluster2 = plt.Circle(blue_center, 0.6, fill=False, 
+                                    edgecolor='#3498db', linestyle='--', linewidth=2, alpha=0.7)
+                ax.add_patch(cluster2)
+                ax.text(blue_center[0], blue_center[1] - 1, 'Type B Cluster', 
+                       ha='center', fontsize=10, weight='bold', color='#3498db')
+        
+        # Progress bar
+        bar_width = 6
+        bar_height = 0.3
+        bar_x = 1.5
+        bar_y = 0.5
+        
+        # Background
+        ax.add_patch(plt.Rectangle((bar_x, bar_y), bar_width, bar_height, 
+                                  facecolor='lightgray', edgecolor='black'))
+        # Progress
+        ax.add_patch(plt.Rectangle((bar_x, bar_y), bar_width * progress, bar_height,
+                                  facecolor='#3498db', edgecolor='black'))
+        ax.text(bar_x + bar_width/2, bar_y - 0.3, f'Optimization Progress: {progress*100:.0f}%', 
+               ha='center', fontsize=10)
+        
+        # Formatting
+        ax.set_xlim(0, 9)
+        ax.set_ylim(0, 8)
+        ax.set_aspect('equal')
+        ax.set_xlabel('t-SNE Dimension 1', fontsize=12)
+        ax.set_ylabel('t-SNE Dimension 2', fontsize=12)
+        ax.set_title('Step 3: t-SNE Gradually Moves Points to Preserve Neighborhoods\n' +
+                    '🎯 Similar cells are pulled together, different cells pushed apart', 
+                    fontsize=12, pad=15)
+        ax.grid(True, alpha=0.3)
+        
+        # Legend
+        legend_elements = [
+            mpatches.Patch(color='#e74c3c', label='Cell Type A'),
+            mpatches.Patch(color='#3498db', label='Cell Type B'),
+            mpatches.Patch(color='#2ecc71', label='Cell Type C'),
+            mpatches.Patch(color='#f39c12', label='Cell Type D')
+        ]
+        ax.legend(handles=legend_elements, loc='upper right', fontsize=9)
+    
+    # Create animation
+    anim = FuncAnimation(fig, animate, frames=101, interval=100, repeat=True)
+    
+    if save_gif:
+        anim.save('tsne_optimization_animation.gif', writer='pillow', fps=10)
+    
+    plt.show()
+    return anim
+
+# Also create static frames showing key stages
+def create_static_optimization_frames():
+    """Create static figures showing key stages of optimization"""
+    
+    stages = [
+        (0, "Initial Random State"),
+        (0.33, "Early Optimization"), 
+        (0.66, "Mid Optimization"),
+        (1.0, "Final Clustered State")
+    ]
+    
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    axes = axes.flatten()
+    
+    # Positions
+    start_positions = np.array([
+        [2, 6], [8, 2], [1, 3], [7, 7], [5, 4], [3, 1]
+    ])
+    
+    end_positions = np.array([
+        [2, 6], [2.8, 6.5], [6, 5.5], [6.7, 6], [4, 2], [7, 1.5]
+    ])
+    
+    colors = ['#e74c3c', '#e74c3c', '#3498db', '#3498db', '#2ecc71', '#f39c12']
+    cell_names = ['Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5', 'Cell 6']
+    
+    for idx, (progress, title) in enumerate(stages):
+        ax = axes[idx]
+        
+        # Calculate positions
+        current_positions = start_positions + (end_positions - start_positions) * progress
+        
+        # Draw cells
+        for i, (pos, color, name) in enumerate(zip(current_positions, colors, cell_names)):
+            circle = plt.Circle(pos, 0.25, color=color, alpha=0.8, zorder=2)
+            ax.add_patch(circle)
+            ax.text(pos[0], pos[1]-0.6, name, ha='center', va='top', 
+                   fontweight='bold', fontsize=9)
+        
+        # Show final clusters
+        if progress == 1.0:
+            red_center = np.mean([current_positions[0], current_positions[1]], axis=0)
+            blue_center = np.mean([current_positions[2], current_positions[3]], axis=0)
+            
+            cluster1 = plt.Circle(red_center, 0.6, fill=False, 
+                                edgecolor='#e74c3c', linestyle='--', linewidth=2)
+            cluster2 = plt.Circle(blue_center, 0.6, fill=False, 
+                                edgecolor='#3498db', linestyle='--', linewidth=2)
+            ax.add_patch(cluster1)
+            ax.add_patch(cluster2)
+        
+        ax.set_xlim(0, 9)
+        ax.set_ylim(0, 8)
+        ax.set_aspect('equal')
+        ax.set_title(title, fontsize=12)
+        ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.show()
+    #plt.savefig('tsne_step4_optimization_stages.png', dpi=300, bbox_inches='tight')
+    #plt.savefig('tsne_step4_optimization_stages.pdf', bbox_inches='tight')
+
+# Create static frames (easier to include in presentations)
+create_static_optimization_frames()
+    
+# Uncomment to create animation (requires pillow: pip install pillow)
+# anim = create_optimization_animation(save_gif=True)
+```
+
+
+* An animation of how tSNE works
+
+<!--
+generated using 
+create_optimization_animation(save_gif=True)
+-->
+
+![Animation of how tSNE works](images/tsne_optimization_animation.gif)
+
+
+## Using a t-distribution over points
+
+- **Problem in 2D**: When we compress high‑dimensional data into 2D, many points that were moderately far apart get squashed together. With a Gaussian in 2D, those "far" points all look similarly unlikely, which causes **crowding** in the center.
+
+- **t-distribution has heavy tails**: It decreases more slowly than a Gaussian. So points that are moderately far apart in 2D still get some probability—**not zero**.
+
+- **What this achieves**:
+  - **Reduces crowding** in the middle of the plot.
+  - **Spreads clusters out** more naturally.
+  - **Preserves local neighborhoods** (close points stay close) while allowing space between different groups.
+
+- **Intuition**: In high dimensions we can identify close neighbours well. In 2D there isn’t enough room, so everything would pile up. The **heavy tails** of the t‑distribution give extra “elbow room,” keeping clusters distinct and easier to interpret.
+
+```{python ch2-tsne-tdist-why}
+#| warning: false
+#| echo: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+from math import gamma, sqrt, pi
+
+def student_t_pdf(x: np.ndarray, df: float) -> np.ndarray:
+    coeff = gamma((df + 1) / 2) / (sqrt(df * pi) * gamma(df / 2))
+    return coeff * (1 + (x**2) / df) ** (-(df + 1) / 2)
+
+# --- Plot 1: Student's t-distribution ---
+x = np.linspace(-5, 5, 800)
+df = 3
+pdf = student_t_pdf(x, df)
+
+plt.figure(figsize=(6, 4))
+plt.plot(x, pdf, color="tab:blue", lw=2)
+plt.title(f"t-distribution")
+plt.xlabel("x")
+plt.ylabel("Density")
+plt.grid(True, alpha=0.3)
+
+# --- Plot 2: Four dispersed 2D clusters ---
+np.random.seed(0)
+points_per_cluster = 150
+means = np.array([
+    [ 4.0,  3.0],
+    [-4.0, -3.0],
+    [ 3.5, -2.5],
+    [-3.5,  2.5],
+])
+# Slightly elongated and rotated covariances
+covs = [
+    np.array([[0.6, 0.25],[0.25, 0.4]]),
+    np.array([[0.5, -0.2],[-0.2, 0.5]]),
+    np.array([[0.4, 0.15],[0.15, 0.3]]),
+    np.array([[0.5, -0.25],[-0.25, 0.35]]),
+]
+
+colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
+labels = [f"Cluster {i+1}" for i in range(4)]
+
+plt.figure(figsize=(6, 6))
+for mean, cov, color, label in zip(means, covs, colors, labels):
+    pts = np.random.multivariate_normal(mean, cov, size=points_per_cluster)
+    plt.scatter(pts[:, 0], pts[:, 1], s=18, alpha=0.75, edgecolor="k", linewidths=0.2, c=color, label=label)
+
+plt.title("Four dispersed clusters")
+plt.xlabel("Feature 1")
+plt.ylabel("Feature 2")
+plt.axis("equal")
+plt.grid(True, alpha=0.3)
+plt.legend(frameon=False, loc="best")
+
+plt.show()
+```
+
+## Explanation of perplexity
+
+tSNE has an important parameter called _perplexity_.
+
+- **What it is**: Perplexity is like the _number of close friends_ each point listens to when arranging the map.
+
+- **How to think about it**: It sets the typical neighborhood size.
+  - **Low perplexity**: each point cares about a small, tight circle.
+  - **High perplexity**: each point _listens_ to more distant neighbors too.
+
+- **If it’s too low**: You may get tiny, fragmented clusters or noisy structure.  
+- **If it’s too high**: Different groups can blur together, losing fine details.  
+- **Good starting range**: 5–50 (try a few values to see what’s most interpretable).
+
+- **Analogy**: Imagine placing cells on a 2D table. Perplexity decides how many nearby "reference cells" each one considers when finding its spot—too few and it overfits tiny patterns; too many and it smooths away meaningful differences.
+
+
+## How to choose perplexity?
+
+The most appropriate value of `perplexity` depends on the density of your data. Loosely speaking, one could say that a larger / denser dataset requires a larger perplexity. Typical values for the perplexity range between 5 and 50.
+
+
+## Key Concept
+
+::: {.callout-tip}
+#### Key Points
+
+- Perplexity in t-SNE acts like a _knob_ for the effective number of nearest neighbours.
+
+![Perplexity as a knob for a complex machine learning model. Image created using DALL-E.](images/knob_radio.png)
+
+:::
+<!--end callout -->
+
+
+## Activity: Interactive figure showing tSNE and perplexity
+
+Here is an interactive tSNE on the `Swiss roll` dataset (we will encounter this later). Play around with this figure and use the slider to change the value of `perplexity`!
+
+```{python ch2-tsne-intreactive-perplexity-plotly}
+#| warning: false
+#| echo: false
+
+# pip install plotly scikit-learn
+import numpy as np
+from sklearn.datasets import make_swiss_roll
+from sklearn.preprocessing import StandardScaler
+from sklearn.manifold import TSNE
+import plotly.graph_objects as go
+
+# Data
+X3d, t = make_swiss_roll(n_samples=2000, noise=0.05, random_state=42)
+X = StandardScaler().fit_transform(X3d)
+
+# Precompute t-SNE for different perplexities
+perplexities = [5, 10, 20, 30, 40, 50, 60, 70, 100]
+embeds = {}
+for perp in perplexities:
+    tsne = TSNE(
+        n_components=2,
+        perplexity=perp,
+        random_state=42,
+        init="pca",
+        learning_rate="auto",
+        verbose=0,
+    )
+    embeds[perp] = tsne.fit_transform(X)
+
+# Build traces (one per perplexity), only first visible
+traces = []
+for i, perp in enumerate(perplexities):
+    xy = embeds[perp]
+    traces.append(
+        go.Scattergl(
+            x=xy[:, 0],
+            y=xy[:, 1],
+            mode="markers",
+            marker=dict(size=4, color=t, colorscale="Turbo", showscale=True, opacity=0.85),
+            visible=(i == 0),
+            name=f"Perplexity {perp}",
+            hovertemplate="x: %{x:.2f}<br>y: %{y:.2f}<br>t: %{marker.color:.1f}<extra></extra>",
+        )
+    )
+
+# Slider steps to toggle visibility
+steps = []
+for i, perp in enumerate(perplexities):
+    vis = [False] * len(perplexities)
+    vis[i] = True
+    steps.append(dict(
+        label=str(perp),
+        method="update",
+        args=[
+            {"visible": vis},
+            {"title": f"t-SNE with Perplexity = {perp}"}
+        ],
+    ))
+
+fig = go.Figure(data=traces)
+fig.update_layout(
+    title=f"t-SNE with Perplexity = {perplexities[0]}",
+    xaxis_title="t-SNE 1",
+    yaxis_title="t-SNE 2",
+    margin=dict(l=0, r=0, t=40, b=0),
+    sliders=[dict(
+        active=0,
+        currentvalue={"prefix": "Perplexity: "},
+        pad={"t": 30},
+        steps=steps
+    )]
+)
+
+fig
+```
+
+
+## Exercise: Building intuition on how to use tSNE
+
+* [Pitfalls in using tSNE](https://distill.pub/2016/misread-tsne/)
+
+* Let us read the paper *How to use t-SNE effectively* [@Wattenberg2016].
+
+* Distances are not preserved
+
+* Normal does not always look normal
+
+
+## What does tSNE look like compared to PCA?
+
+```{python mnist}
+#| echo: false
+#| warning: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import fetch_openml
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+
+# 1. Load MNIST data
+mnist = fetch_openml('mnist_784', version=1, as_frame=False)
+X, y = mnist['data'], mnist['target'].astype(int)
+
+# Run k-Means with k=10
+k = 10
+km = KMeans(n_clusters=k, random_state=42)
+clusters = km.fit_predict(X)
+inertia = km.inertia_
+
+# 2-D PCA projection of the original MNIST data
+pca = PCA(n_components=2, random_state=42)
+X_pca = pca.fit_transform(X)
+
+plt.figure(figsize=(8,6))
+scatter = plt.scatter(
+    X_pca[:,0], X_pca[:,1],
+    c=y, cmap='tab10', s=5, alpha=0.6
+)
+plt.title('MNIST 2-D PCA, colored by actual digits')
+plt.xlabel('PC 1')
+plt.ylabel('PC 2')
+plt.legend(*scatter.legend_elements(), title='Digit', loc='best')
+plt.tight_layout()
+plt.show()
+
+# Use a smaller subset of the data for t-SNE to speed up computation
+n_samples = 5000  # You can adjust this number
+X_subset = X[:n_samples]
+clusters_subset = clusters[:n_samples]
+
+tsne = TSNE(n_components=2, perplexity=30, early_exaggeration=12,
+            learning_rate=200, max_iter=1000, random_state=42)
+X_tsne = tsne.fit_transform(X_subset)
+
+plt.figure(figsize=(8,6))
+scatter = plt.scatter(
+    X_tsne[:,0], X_tsne[:,1],
+    c=clusters_subset, cmap='tab10', s=5, alpha=0.6
+)
+plt.title(f'MNIST 2-D t-SNE (subset of {n_samples} samples), colored by k-Means cluster')
+plt.xlabel('t-SNE dim 1')
+plt.ylabel('t-SNE dim 2')
+plt.legend(*scatter.legend_elements(), title='Cluster', loc='best')
+plt.tight_layout()
+plt.show()
+
+```
+
+
+
+
+## Simple code to perform tSNE (hands-on exercise)
+
+Let us now practice performing tSNE on some data. We will use the `iris` data. The **Iris dataset** is a small, classic dataset in machine learning.  
+
+It contains measurements of **150 flowers** from three species of iris (*setosa, versicolor, virginica*).  
+
+For each flower, four features are recorded:
+- **Sepal length**
+- **Sepal width**
+- **Petal length**
+- **Petal width**
+
+```{python ch3-tsne-prac}
+#| warning: false
+
+import matplotlib.pyplot as plt
+from sklearn import datasets
+from sklearn.manifold import TSNE
+import pandas as pd
+
+# Load the Iris dataset
+iris = datasets.load_iris()
+X = iris.data            # The features (measurements)
+y = iris.target          # The species labels (0, 1, 2)
+
+# create a data frame for easier viewing
+df_iris_simple = pd.DataFrame(X, columns = iris.feature_names)
+
+df_iris_simple['species'] = iris.target
+df_iris_simple['species_name'] = df_iris_simple['species'].map( {0:'setosa', 1:'versicolor', 2:'virginica'} )
+
+# display basic information
+print(df_iris_simple.head)
+
+# scatter plots
+plt.figure()
+plt.scatter(X[:,0], X[:,1], c = iris.target, cmap='viridis')
+plt.xlabel(iris.feature_names[0])
+plt.ylabel(iris.feature_names[1])
+plt.title('Sepal length vs. Sepal width')
+plt.colorbar(label='species')
+plt.show()
+
+
+# Run t-SNE to reduce the data to 2 dimensions
+tsne = TSNE(n_components=2, random_state=0, perplexity=30)
+X_2d = tsne.fit_transform(X)
+
+# Plot the results (simple plot)
+plt.figure()
+plt.scatter(X_2d[:,0], X_2d[:,1], c = y) # color by spcies labels
+plt.show()
+
+# Plot the results, one species at a time
+plt.figure()
+# Setosa (label 0)
+idx_y_0 = (y == 0) # get index of those flowers where y == 0
+plt.scatter(X_2d[idx_y_0,0], X_2d[idx_y_0,1], color='red', label='setosa')
+
+# Versicolor (label 1)
+idx_y_1 = (y == 1) # get index of those flowers where y == 1
+plt.scatter(X_2d[idx_y_1,0], X_2d[idx_y_1,1], color='green', label='versicolor')
+
+# Virginica (label 2)
+idx_y_2 = (y == 2) # get indices of when y is 2
+plt.scatter(X_2d[idx_y_2,0], X_2d[idx_y_2,1], color='blue', label='virginica')
+
+plt.xlabel("t-SNE feature 1")
+plt.ylabel("t-SNE feature 2")
+plt.title("t-SNE visualization of the Iris dataset")
+plt.legend()
+plt.show()
+```
+
+
+## Exercise: tSNE is stochastic
+
+* Stochasticity: play around with the `random_state` parameter. Does your tSNE plot look different to the person you are seated next to?
+
+* Play around with the `perplexity` parameter (pair up with someone)
+
+* Which value of `perplexity` should you use?
+
+
+
+
+## Key Concept
+
+::: {.callout-tip}
+#### Key Points
+
+- Recall that unsupervised machine learning can help you come up with new hypotheses
+- Vary the perplexity parameter: ideally your patterns or hypotheses should be true even if you change perplexity
+
+:::
+<!--end callout -->
+
+
+## Perplexity pitfalls and things to watch out for
+
+```{python ch2-tsne-morepitfalls-tsne}
+#| warning: false
+#| echo: false
+
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.patches as mpatches
+
+# Figure 7: Common Pitfalls and Best Practices
+fig = plt.figure(figsize=(16, 12))
+
+# Create a 2x3 grid for different examples
+gs = fig.add_gridspec(3, 2, height_ratios=[1, 1, 0.8], hspace=0.3, wspace=0.3)
+
+# Example 1: Good t-SNE (top left)
+ax1 = fig.add_subplot(gs[0, 0])
+np.random.seed(42)
+
+# Well-separated clusters
+cluster1 = np.random.normal([2, 2], 0.3, (30, 2))
+cluster2 = np.random.normal([6, 2], 0.3, (30, 2))  
+cluster3 = np.random.normal([4, 5], 0.3, (30, 2))
+
+ax1.scatter(cluster1[:, 0], cluster1[:, 1], c='#e74c3c', alpha=0.7, s=40)
+ax1.scatter(cluster2[:, 0], cluster2[:, 1], c='#3498db', alpha=0.7, s=40)
+ax1.scatter(cluster3[:, 0], cluster3[:, 1], c='#2ecc71', alpha=0.7, s=40)
+
+ax1.set_title('✅ GOOD t-SNE\nClear, well-separated clusters', 
+             fontsize=12, color='green', weight='bold')
+ax1.set_xticks([])
+ax1.set_yticks([])
+
+# Example 2: Bad perplexity - too low (top right)
+ax2 = fig.add_subplot(gs[0, 1])
+
+# Simulate too-low perplexity (over-clustering)
+n_points = 90
+x = np.random.rand(n_points) * 8
+y = np.random.rand(n_points) * 6
+colors = ['#e74c3c', '#3498db', '#2ecc71'] * 30
+
+# Create many small clusters
+for i in range(0, len(x), 3):
+    if i+2 < len(x):
+        # Make small tight groups
+        x[i:i+3] = np.random.normal(x[i], 0.1, 3)
+        y[i:i+3] = np.random.normal(y[i], 0.1, 3)
+
+ax2.scatter(x, y, c=colors, alpha=0.7, s=40)
+ax2.set_title('❌ BAD: Perplexity Too Low\nToo many tiny clusters', 
+             fontsize=12, color='red', weight='bold')
+ax2.set_xticks([])
+ax2.set_yticks([])
+
+# Example 3: Bad perplexity - too high (middle left)
+ax3 = fig.add_subplot(gs[1, 0])
+
+# Simulate too-high perplexity (under-clustering)
+all_points = np.vstack([cluster1, cluster2, cluster3])
+# Add noise to simulate poor separation
+noise = np.random.normal(0, 0.8, all_points.shape)
+noisy_points = all_points + noise
+
+colors_mixed = ['#e74c3c'] * 30 + ['#3498db'] * 30 + ['#2ecc71'] * 30
+ax3.scatter(noisy_points[:, 0], noisy_points[:, 1], c=colors_mixed, alpha=0.7, s=40)
+ax3.set_title('❌ BAD: Perplexity Too High\nClusters merge together', 
+             fontsize=12, color='red', weight='bold')
+ax3.set_xticks([])
+ax3.set_yticks([])
+
+# Example 4: Batch effects (middle right)
+ax4 = fig.add_subplot(gs[1, 1])
+
+# Simulate batch effects - same cell types in different "batches"
+batch1_offset = [0, 0]
+batch2_offset = [4, 3]
+
+# Batch 1
+b1_c1 = np.random.normal([1, 1], 0.2, (15, 2)) + batch1_offset
+b1_c2 = np.random.normal([2, 2], 0.2, (15, 2)) + batch1_offset
+
+# Batch 2 - same cell types but shifted
+b2_c1 = np.random.normal([1, 1], 0.2, (15, 2)) + batch2_offset  
+b2_c2 = np.random.normal([2, 2], 0.2, (15, 2)) + batch2_offset
+
+ax4.scatter(b1_c1[:, 0], b1_c1[:, 1], c='#e74c3c', marker='o', alpha=0.7, s=40, label='Type A, Batch 1')
+ax4.scatter(b1_c2[:, 0], b1_c2[:, 1], c='#3498db', marker='o', alpha=0.7, s=40, label='Type B, Batch 1')
+ax4.scatter(b2_c1[:, 0], b2_c1[:, 1], c='#e74c3c', marker='^', alpha=0.7, s=40, label='Type A, Batch 2')
+ax4.scatter(b2_c2[:, 0], b2_c2[:, 1], c='#3498db', marker='^', alpha=0.7, s=40, label='Type B, Batch 2')
+
+ax4.set_title('❌ BAD: Batch Effects\nTechnical variation > biological', 
+             fontsize=12, color='red', weight='bold')
+ax4.legend(fontsize=8, loc='upper right')
+ax4.set_xticks([])
+ax4.set_yticks([])
+
+# Bottom section: Best practices guide
+ax5 = fig.add_subplot(gs[2, :])
+ax5.axis('off')
+
+best_practices = """
+🛠️ t-SNE BEST PRACTICES FOR BIOLOGISTS:
+
+🔧 BEFORE RUNNING t-SNE:
+• Remove low-quality cells (high mitochondrial %, low gene count)
+• Normalize your data (log-transform, scale)
+• Select most variable genes (~2000-5000)
+• Consider batch correction if needed
+
+⚙️ PARAMETER TUNING:
+• Perplexity: Start with 30-50, try 5-100 range
+  - Small datasets: lower perplexity (5-30)
+  - Large datasets: higher perplexity (50-100)
+• Iterations: At least 1000, often need 5000+
+• Learning rate: Usually 200-1000
+
+🔍 INTERPRETING RESULTS:
+✅ DO interpret:                           ❌ DON'T interpret:
+• Cluster presence/absence                 • Exact distances between clusters
+• Which cells group together              • Cluster sizes (can be misleading)
+• Overall data structure                  • Absolute positions
+• Cell type identification                • Trajectories between clusters
+
+🧪 VALIDATION STEPS:
+• Run multiple times with different random seeds
+• Try different perplexity values
+• Validate clusters with known markers
+• Use complementary methods (UMAP, PCA). For UMAP, see bonus material section.
+• Check for batch effects
+
+⚠️ COMMON MISTAKES:
+• Using t-SNE distances for quantitative analysis
+• Over-interpreting cluster sizes
+• Not validating with biological knowledge  
+• Ignoring parameter sensitivity
+• Running only once with default settings
+"""
+
+ax5.text(0.05, 0.95, best_practices, transform=ax5.transAxes, 
+         fontsize=11, va='top', ha='left',
+         bbox=dict(boxstyle="round,pad=0.5", facecolor='lightyellow', alpha=0.9))
+
+plt.suptitle('t-SNE Pitfalls and Best Practices Guide', fontsize=16, weight='bold', y=0.98)
+plt.tight_layout()
+plt.show()
+# Save the figure
+#plt.savefig('tsne_step7_pitfalls_best_practices.png', dpi=300, bbox_inches='tight')
+#plt.savefig('tsne_step7_pitfalls_best_practices.pdf', bbox_inches='tight')
+```
+
+<!--## PCA vs. tSNE -->
+
+<!-- TODO: -->
+
+```{python ch2-tsne-pca-vs-tsne-python}
+#| warning: false
+#| echo: false
+#| eval: false
+
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.patches as mpatches
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+
+# Figure 6: t-SNE vs PCA Comparison
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7))
+
+# Create sample data with clear clusters in high dimensions
+np.random.seed(42)
+
+# Generate 3 distinct clusters in high-dimensional space
+n_samples_per_cluster = 20
+n_features = 50
+
+# Cluster 1: High in first half of features
+cluster1 = np.random.normal(0, 0.5, (n_samples_per_cluster, n_features))
+cluster1[:, :25] += 3  # Boost first half
+
+# Cluster 2: High in second half of features  
+cluster2 = np.random.normal(0, 0.5, (n_samples_per_cluster, n_features))
+cluster2[:, 25:] += 3  # Boost second half
+
+# Cluster 3: Moderate in all features
+cluster3 = np.random.normal(1.5, 0.3, (n_samples_per_cluster, n_features))
+
+# Combine data
+X = np.vstack([cluster1, cluster2, cluster3])
+colors = ['#e74c3c'] * n_samples_per_cluster + \
+         ['#3498db'] * n_samples_per_cluster + \
+         ['#2ecc71'] * n_samples_per_cluster
+labels = ['Type A'] * n_samples_per_cluster + \
+         ['Type B'] * n_samples_per_cluster + \
+         ['Type C'] * n_samples_per_cluster
+
+# Apply PCA
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X)
+
+# Apply t-SNE
+tsne = TSNE(n_components=2, random_state=42, perplexity=30)
+X_tsne = tsne.fit_transform(X)
+
+# Plot PCA results
+for i, (color, label) in enumerate(zip(['#e74c3c', '#3498db', '#2ecc71'], 
+                                     ['Type A', 'Type B', 'Type C'])):
+    start_idx = i * n_samples_per_cluster
+    end_idx = (i + 1) * n_samples_per_cluster
+    ax1.scatter(X_pca[start_idx:end_idx, 0], X_pca[start_idx:end_idx, 1], 
+               c=color, label=label, alpha=0.7, s=50)
+
+ax1.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)')
+ax1.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)')
+ax1.set_title('PCA: Linear Dimensionality Reduction\n' +
+             'Preserves global structure & variance', fontsize=12, pad=15)
+ax1.legend()
+ax1.grid(True, alpha=0.3)
+
+# Plot t-SNE results  
+for i, (color, label) in enumerate(zip(['#e74c3c', '#3498db', '#2ecc71'], 
+                                     ['Type A', 'Type B', 'Type C'])):
+    start_idx = i * n_samples_per_cluster
+    end_idx = (i + 1) * n_samples_per_cluster
+    ax2.scatter(X_tsne[start_idx:end_idx, 0], X_tsne[start_idx:end_idx, 1], 
+               c=color, label=label, alpha=0.7, s=50)
+
+ax2.set_xlabel('t-SNE Dimension 1')
+ax2.set_ylabel('t-SNE Dimension 2')
+ax2.set_title('t-SNE: Non-linear Dimensionality Reduction\n' +
+             'Preserves local neighborhoods & reveals clusters', fontsize=12, pad=15)
+ax2.legend()
+ax2.grid(True, alpha=0.3)
+
+# Add comparison table below
+fig.text(0.5, 0.02, 
+"""
+📊 PCA vs t-SNE Comparison:
+
+                    PCA                                          t-SNE
+🎯 Goal:           Preserve global variance                    Preserve local neighborhoods  
+📈 Method:         Linear projection                          Non-linear embedding
+⏱️ Speed:          Fast                                        Slower
+🔍 Best for:       • Understanding data variance              • Finding hidden clusters
+                   • Preprocessing for other methods          • Exploratory data analysis
+                   • When global structure matters            • Visualizing complex patterns
+❌ Limitations:    • May miss non-linear patterns             • Doesn't preserve global distances
+                   • Clusters may overlap                     • Can create false clusters
+                                                             • Sensitive to parameters
+""", 
+ha='center', va='bottom', fontsize=10, 
+bbox=dict(boxstyle="round,pad=0.8", facecolor='lightgray', alpha=0.8))
+
+plt.tight_layout()
+plt.subplots_adjust(bottom=0.35)
+plt.show()
+# Save the figure
+#plt.savefig('tsne_step6_comparison_with_pca.png', dpi=300, bbox_inches='tight')
+#plt.savefig('tsne_step6_comparison_with_pca.pdf', bbox_inches='tight')
+```
+
+
+
+## Exercise: Hands-on practical applying tSNE to another dataset
+
+* Work in a group.
+
+* Load the US Arrests data in Python and perform tSNE on this (pair up with a person)
+
+
+* Some code to help you get started is here:
+
+```{python ch3-tsne-usarrest_simplecode}
+#| eval: false
+#| echo: true
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+
+# Load the US Arrests data
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/main/course_files/data/USArrests.csv"
+df = pd.read_csv(url, index_col=0)
+
+# Prepare the data for t-SNE
+X = df.values  
+
+# Fill in your code here ..........
+
+```
+
+```{python ch3-tsne-usarrest_simplecode}
+#| eval: false
+#| echo: false
+#| output: false
+#| warning: false
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+
+# Load the US Arrests data
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/main/course_files/data/USArrests.csv"
+df = pd.read_csv(url, index_col=0)
+
+# Prepare the data for t-SNE
+X = df.values  
+
+# Run t-SNE to reduce the data to 2 dimensions
+tsne = TSNE(n_components=2, random_state=42)
+X_2d = tsne.fit_transform(X)
+
+# Plot the results
+plt.figure()
+plt.scatter(X_2d[:, 0], X_2d[:, 1], alpha=0.7)
+
+plt.xlabel("t-SNE feature 1")
+plt.ylabel("t-SNE feature 2")
+plt.title("t-SNE visualization of US Arrests data")
+plt.show()
+```
+
+* How would you evaluate this?
+
+* Vary the `perplexity` parameter
+
+
+<!-- TODO: students might need help with annotation -->
+
+* Also annotate the plot by US states. _Hint_: Use the `plt.annotate()` function. The US states names are available in `df.index`.
+
+* Is `California` still far apart from `Vermont` even if you change the `perplexity` parameter?
+
+```{python ch3-tsne_usarrestdata}
+#| eval: false
+#| echo: false
+#| output: false
+#| warning: false
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+
+# Load the US Arrests data
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/main/course_files/data/USArrests.csv"
+df = pd.read_csv(url, index_col=0)
+
+# Prepare the data for t-SNE
+X = df.values  # Convert to numpy array
+
+# Run t-SNE to reduce the data to 2 dimensions
+tsne = TSNE(n_components=2, random_state=42)
+X_2d = tsne.fit_transform(X)
+
+# Plot the results
+plt.figure()
+plt.scatter(X_2d[:, 0], X_2d[:, 1], alpha=0.7)
+
+# Add state labels to the points
+for i, state in enumerate(df.index):
+    plt.annotate(state, (X_2d[i, 0], X_2d[i, 1]), 
+                xytext=(5, 5), textcoords='offset points', 
+                fontsize=8)
+
+plt.xlabel("t-SNE feature 1")
+plt.ylabel("t-SNE feature 2")
+plt.title("t-SNE visualization of US Arrests data")
+plt.tight_layout()
+plt.show()
+```
+
+
+## Other algorithms
+
+We have given a brief overview of some unsupervised machine learning techniques. There are many others. For example, you can also read about [UMAP](https://cambiotraining.github.io/ml-unsupervised/materials/umap.html)
+
+<!-- TODO: UMAP
+
+but it might be good if the course went a little further than what’s typically found in most introductory resources. Some additional methods worth at least mentioning are:
+
+MDS (multidimensional scaling)
+PCoA (principal coordinates analysis)
+
+-->
+
+
+## Summary
+
+::: {.callout-tip}
+#### Key Points
+
+- High dimensions make global distances meaningless.
+- Methods that leverage local structure (t‑SNE) can still find patterns.
+- tSNE is stochastic and can be hard to interpret
+- Vary the `perplexity` parameter (ideally your patterns or hypotheses should be true even if you change perplexity)
+
+:::
+<!--end callout -->
+
+
+## References
+
+[1] [How to Use t-SNE Effectively](https://distill.pub/2016/misread-tsne/)
+
+[2] [FAQs by the creator of tSNE](https://lvdmaaten.github.io/tsne/#faq)
+
+[3] [Other intricacies of tSNE](https://jlmelville.github.io/smallvis/swisssne.html)

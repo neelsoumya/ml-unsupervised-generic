@@ -1,0 +1,643 @@
+---
+title: "Introduction to Unsupervised Learning"
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    incremental: true
+    center: false
+    transition: slide
+    controls: true
+    progress: true
+execute:
+  echo: false
+  warning: false
+jupyter: python3
+---
+
+---
+
+::: {.callout-tip}
+## Learning Objectives
+
+By the end of this module, learners will be able to:
+
+* Define unsupervised learning and explain how it differs from supervised learning in terms of inputs, outputs, and goals.
+
+* Identify common unsupervised techniques, including clustering (e.g., k‑means, hierarchical) and dimensionality reduction (e.g., PCA), and describe when each is appropriate.
+
+* Discuss real‑world applications of unsupervised learning, such as customer segmentation, anomaly detection, and image compression.
+
+* Explain the role of unsupervised learning in exploratory data analysis.
+
+* Interpret principal component analysis (PCA) intuitively to understand how PCA finds the directions of greatest variance in data.
+
+* Apply dimensionality reduction to a simple multivariate dataset (e.g., crime rates and population by state) to visualize high‑dimensional data in two or three dimensions.
+
+* Differentiate unsupervised from supervised problems by examining datasets and deciding whether the task is to uncover patterns versus predict a known target variable.
+
+* Articulate the value of unsupervised learning in uncovering hidden structure in unlabelled data and its importance as data complexity grow.
+:::
+
+---
+
+# Introduction
+
+Unsupervised learning is a branch of machine learning that deals with finding hidden patterns or intrinsic structures in data without the use of labeled responses. Unlike supervised learning, where the model learns from labeled data to predict outcomes, unsupervised learning works with input data that does not have any corresponding output variables. The primary goal is to explore the underlying structure, groupings, or features in the data.
+
+One of the most common applications of unsupervised learning is clustering, where the algorithm groups similar data points together based on their characteristics. This is particularly useful in scenarios such as customer segmentation, anomaly detection, and image compression. Another key technique is dimensionality reduction, which aims to reduce the number of variables under consideration, making it easier to visualize and interpret large datasets.
+
+Unsupervised learning is valuable because it can reveal insights that may not be immediately apparent, uncovering relationships and patterns that might otherwise go unnoticed. It is commonly used in exploratory data analysis and as a preprocessing step for other algorithms. As data continues to grow in complexity and volume, unsupervised learning plays a critical role in making sense of unstructured information.
+
+---
+
+## Motivation
+
+Here is a picture I took of a pavement in Cambridge the day after Valentine's Day. Why did this picture capture my attention? The starkness of the grey pavement contrasted with the bright red rose. It may have triggered some unsupervised learning mechanism in my brain that allows me to pick anomalies!
+
+![Rose after Valentine's Day](images/rose_after_valentines_day.png)
+
+Unsupervised learning is all about discovering structure in data without any explicit “right answers” to guide you. The rose‑on‑pavement photo is a perfect real‑world illustration of a few core ideas:
+
+* Anomaly (or Outlier) Detection
+- **What happened in your brain:**  
+  When you look at a uniform grey pavement, your visual system builds an internal "model" of what is normal: flat, texture‑repeating, monochrome. The bright red rose doesn’t fit that model, so it “pops,” drawing your attention.
+
+- **In machine learning:**  
+  Algorithms can learn a representation of “normal” data (e.g. patches of pavement) and then flag anything that deviates significantly (e.g. the rose) as an anomaly.
+
+- **Human vision analogy:**  
+  Early in the visual cortex, neurons respond to edges, color contrasts, textures. A red circle on grey evokes strong responses in “color” and “shape‑edge” channels.
+
+---
+
+## Example: Unsupervised problem
+
+Given the data below, how should we reduce the number of features and/or visualize it? This is an **unsupervised** machine learning problem.
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)**: The columns of this data are the *features*.
+:::
+
+| State       | Murder (per 100k) | Robbery (per 100k) | Population     |
+|-------------|-------------------|--------------------|----------------|
+| California  | 9.1               | 45.3               | 39,512,223     |
+| Texas       | 7.8               | 38.6               | 28,995,881     |
+| Florida     | 5.9               | 31.7               | 21,477,737     |
+| New York    | 3.4               | 26.4               | 19,453,561     |
+| Illinois    | 6.4               | 35.1               | 12,671,821     |
+| Pennsylvania| 4.8               | 22.9               | 12,801,989     |
+
+---
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)**: Importantly, in unsupervised machine learning we are not trying to predict anything. For example, say in the data below we can try to predict the number of people who moved to that state last year. This would be a **supervised** machine learning problem [@Gareth2017].
+:::
+
+| State        | Murder (per 100k) | Robbery (per 100k) | Population   | People Who Moved (per 100k) |
+|--------------|-------------------|--------------------|--------------|-----------------------------|
+| California   | 9.1               | 45.3               | 39,512,223   | 5,400                       |
+| Texas        | 7.8               | 38.6               | 28,995,881   | 4,100                       |
+| Florida      | 5.9               | 31.7               | 21,477,737   | 6,200                       |
+| New York     | 3.4               | 26.4               | 19,453,561   | 3,800                       |
+| Illinois     | 6.4               | 35.1               | 12,671,821   | 2,900                       |
+| Pennsylvania | 4.8               | 22.9               | 12,801,989   | 2,500                       |
+
+---
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPTS)**: 
+
+* If there is a column in the table that we are trying to predict, this would be called a *label*. **Supervised** machine learning (such as linear regression) tries to predict the *label* given the *features* [@Gareth2017].
+
+* However in unsupervised machine learning, we only deal with features and do not try to predict anything. 
+
+* Hence there are no *labels* in unsupervised machine learning.
+:::
+
+---
+
+## Curse of dimensionality
+
+How would you visualize data that has 14 dimensions? How about 1 million dimensions (can happen in the age of big data)?
+
+* Would you remove one column at a time?
+
+* Would you plot each feature/column vs the other exhaustively? How many pairwise plots would you need to plot for exhaustive visualization?
+
+::: {.callout-hint collapse="true"}
+```{python ch1-math-nchoose2}
+#| warning: false
+#| echo: false
+
+import math
+
+def num_pairwise_plots(num_features):
+    # Number of unique pairs: n choose 2
+    return math.comb(num_features, 2)
+
+num_features = 5
+print(f"Number of pairwise plots for {num_features} features: {num_pairwise_plots(num_features)}")
+
+num_features = 14
+print(f"Number of pairwise plots for {num_features} features: {num_pairwise_plots(num_features)}")
+
+num_features = 1000000
+print(f"Number of pairwise plots for {num_features} features: {num_pairwise_plots(num_features)}")
+```
+
+```{python ch1-code-exponentialramp}
+#| warning: false
+#| echo: false
+
+# Linear-scale plot of number of pairwise plots (n choose 2) for n = 1..1000
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def num_pairwise(n):
+    return n * (n - 1) / 2
+
+# Range up to 1000
+n_values = np.arange(1, 1001, dtype=np.int64)
+y_values = num_pairwise(n_values)
+
+# Example points to mark
+example_ns = np.array([5, 14, 1000], dtype=np.int64)
+example_vals = num_pairwise(example_ns).astype(np.int64)
+
+plt.figure(figsize=(10,6))
+plt.plot(n_values, y_values, linewidth=1)
+plt.scatter(example_ns, example_vals, s=60)  # mark example points
+plt.xlabel('Number of features (n)')
+plt.ylabel('Number of pairwise plots (n choose 2)')
+plt.title('Pairwise plots required as a function of number of features (1 ≤ n ≤ 1000)')
+plt.grid(True, linestyle='--', linewidth=0.5)
+
+plt.xlim(0, 1005)
+plt.tight_layout()
+plt.show()
+```
+
+* You will have an exponential blowup! So this approach will not work.
+
+* We need something more principled.
+
+:::
+
+---
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)** 
+
+* It is not possible to exhaustively plot one feature vs. another _or_ remove any feature willy-nilly. For example, in a dataset from patient healthcare records, we cannot just randomly throw away data on blood pressure.
+
+* This is why we use dimensionality reduction to _reduce_ the dimensions of the data. This yields fewer _new_ features.
+:::
+
+---
+
+# What PCA does to the data
+
+### Projection of 3D Data
+
+We generate three clusters of synthetic 3‑dimensional points, compute the first two principal components using scikit‑learn’s PCA, and then create a two‑panel figure:
+
+1. **Left panel**: A 3D scatter of the original points, the best‐fit plane defined by the first two principal components, and projection lines from each point down onto that plane.  
+2. **Right panel**: A 2D scatter of the projected coordinates (the principal component scores) along the first two components, colored by cluster.
+
+Use this visualization to understand how PCA finds the plane that maximizes variance and how the data look when reduced to two dimensions.
+
+```{python ch1-import-3d-pca}
+#| echo: false
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from mpl_toolkits.mplot3d import Axes3D
+```
+
+```{python ch1-3d-pca}
+#| echo: false
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+
+# 1. Generate synthetic 3D data (three clusters)
+np.random.seed(0)
+n = 30
+means = [(-2, 0, 0), (2, 0, 0), (0, 2, 2)]
+data = np.vstack([np.random.randn(n, 3) + m for m in means])
+labels = np.array([0]*n + [1]*n + [2]*n)
+
+# 2. Perform PCA to get first two components
+pca = PCA(n_components=2)
+scores = pca.fit_transform(data)
+components = pca.components_
+mean_3d = pca.mean_
+
+# 3. Create a meshgrid for the principal component plane
+grid_x, grid_y = np.meshgrid(
+    np.linspace(-4, 4, 10),
+    np.linspace(-4, 4, 10)
+)
+# Plane points: mean + x*pc1 + y*pc2
+plane_points = mean_3d + grid_x[..., None] * components[0] + grid_y[..., None] * components[1]
+
+# 4. Inverse transform scores to get projections back into 3D
+proj_3d = pca.inverse_transform(scores)
+
+# 5. Plotting with vertical layout (2 rows, 1 column)
+fig = plt.figure(figsize=(8, 10))
+
+# Top: 3D scatter with PCA plane and projection lines
+ax1 = fig.add_subplot(2, 1, 1, projection='3d')
+ax1.scatter(data[:, 0], data[:, 1], data[:, 2], c=labels)
+ax1.plot_surface(
+    plane_points[:, :, 0],
+    plane_points[:, :, 1],
+    plane_points[:, :, 2],
+    alpha=0.2,
+    edgecolor='gray',
+    linewidth=0.5
+)
+for i in range(data.shape[0]):
+    xs = [data[i, 0], proj_3d[i, 0]]
+    ys = [data[i, 1], proj_3d[i, 1]]
+    zs = [data[i, 2], proj_3d[i, 2]]
+    ax1.plot(xs, ys, zs, linewidth=0.5)
+ax1.set_title('Data and first two principal components')
+ax1.set_xlabel('X₁')
+ax1.set_ylabel('X₂')
+ax1.set_zlabel('X₃')
+
+# Bottom: 2D scatter of PCA scores
+ax2 = fig.add_subplot(2, 1, 2)
+ax2.scatter(scores[:, 0], scores[:, 1], c=labels)
+ax2.set_title('Projection onto first two PCs')
+ax2.set_xlabel('First principal component')
+ax2.set_ylabel('Second principal component')
+
+plt.tight_layout()
+plt.show()
+
+```
+
+---
+
+# Another intuition behind PCA
+
+Principal Component Analysis (PCA) reduces the number of dimensions in your data by finding the directions where the data varies the most and keeping only those directions.
+
+Imagine you have a book: it has length, width, and height. But if the book is very thin, almost all of its *size* or *volume* is in the length and width—the height is so small that you can almost ignore it. If you wanted to describe where the book is on a table, you could just use two numbers (length and width), and you wouldn’t lose much information by ignoring the height.
+
+PCA works the same way: it finds the *thin* directions in your data that do not add much information, and lets you focus on the most important dimensions. This makes it easier to visualize and analyze your data without losing the main patterns.
+
+![A thin book on the floor. Image created using the DALL-E AI tool.](images/book_pca.png)
+
+---
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)** 
+
+Say your data has too many *columns/dimensions/features*. Dimensionality reduction techniques (such as PCA) reduce the number of dimensions or the number of columns in your data.
+:::
+
+---
+
+# PCA is lossy
+
+PCA does lose some information. But it can capture some/most of the salient aspects of your data. 
+
+---
+
+# Lesson on lossy compression (PCA applied to image)
+
+### Learning Objectives
+
+* Understand how Principal Component Analysis (PCA) can be applied to images.
+* Observe how PCA captures the most significant patterns in image data.
+* Visualize how the number of principal components affects image reconstruction.
+* Appreciate the trade-off between compression and information loss.
+
+### Key Concepts
+
+* **PCA** is a dimensionality reduction technique that identifies directions (principal components) along which the variance in the data is maximized.
+* Images can be viewed as high-dimensional data (each pixel as a feature), and PCA helps reduce that dimensionality while preserving key patterns.
+
+### Procedure Overview
+
+1. **Load and display an image** from a URL.
+2. **Apply PCA to each RGB channel** of the image separately.
+3. **Reconstruct the image** using an increasing number of principal components.
+4. **Visualize the reconstructions** to show how few components capture most of the image's structure.
+
+```{python ch1-pca-lossy-image}
+
+#| echo: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+import requests
+from PIL import Image
+from io import BytesIO
+
+# Load the image from GitHub
+url = "https://raw.githubusercontent.com/neelsoumya/python_machine_learning/main/images/rose_after_valentines_day.png"
+response = requests.get(url)
+img = Image.open(BytesIO(response.content)).convert("RGB")
+
+# Resize for computational ease (optional)
+img = img.resize((img.width // 4, img.height // 4))
+img_np = np.array(img)
+
+# Display original image
+plt.figure(figsize=(5, 5))
+plt.title("Original Image")
+plt.imshow(img_np)
+plt.axis("off")
+plt.show()
+
+# Function to apply PCA to each color channel
+def pca_on_channel(channel_data, n_components):
+    original_shape = channel_data.shape
+    flat_data = channel_data.reshape(-1, 1)
+    pca = PCA(n_components=n_components)
+    reduced = pca.fit_transform(flat_data)
+    reconstructed = pca.inverse_transform(reduced)
+    return reconstructed.reshape(original_shape)
+
+# Apply PCA to each channel separately with varying components
+components_list = [1, 5, 10, 20, 50]
+fig, axs = plt.subplots(1, len(components_list), figsize=(15, 5))
+
+for i, n_components in enumerate(components_list):
+    # Flatten each channel for PCA
+    reconstructed_channels = []
+    for c in range(3):  # RGB
+        channel = img_np[:, :, c]
+        h, w = channel.shape
+        pca = PCA(n_components=n_components)
+        reduced = pca.fit_transform(channel)
+        reconstructed = pca.inverse_transform(reduced)
+        reconstructed_channels.append(reconstructed)
+
+    reconstructed_img = np.stack(reconstructed_channels, axis=2).astype(np.uint8)
+    axs[i].imshow(reconstructed_img)
+    axs[i].set_title(f"{n_components} PC")
+    axs[i].axis('off')
+
+plt.suptitle("Image Reconstruction with Varying Principal Components", fontsize=14)
+plt.tight_layout()
+plt.show()
+
+```
+
+---
+
+::: {.callout-tip}
+### Key Concept 
+
+![Information bottleneck](images/information_bottleneck.png)
+
+In unsupervised learning, the __bottleneck concept__ refers to a deliberate  constraint where information is compressed through a narrow intermediate step. The model is trained to reconstruct the input data after passing it through this low-dimensional bottleneck, forcing it to learn a compact and informative representation of the underlying structure of the data. Since there are no labels guiding the learning process, the model relies solely on reconstructing its input as accurately as possible, using only the limited information passed through this narrow channel. This compression encourages the model to capture essential features while discarding noise or redundancy.
+:::
+
+---
+
+## Activity: Playable version of PCA in browser
+
+[PCA in your browser](https://projector.tensorflow.org/)
+
+---
+
+# Visual explanations of PCA
+
+```{python ch1-visual-explanation}
+#| echo: false
+#| fig.cap: "Visual explanation of PCA"
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+
+# Generate synthetic 2D data
+np.random.seed(42)
+X = np.dot(np.random.rand(2, 2), np.random.randn(2, 100)).T
+
+# Fit PCA
+pca = PCA(n_components=2)
+pca.fit(X)
+X_pca = pca.transform(X)
+
+# Get principal component vectors
+origin = np.mean(X, axis=0)
+pc1 = pca.components_[0] * np.sqrt(pca.explained_variance_[0]) * 3
+pc2 = pca.components_[1] * np.sqrt(pca.explained_variance_[1]) * 3
+
+plt.figure(figsize=(8, 6))
+plt.scatter(X[:, 0], X[:, 1], alpha=0.5, label='Original Data')
+plt.quiver(*origin, *pc1, scale=1, scale_units='xy', angles='xy', width=0.01, label='PC1')
+plt.quiver(*origin, *pc2, scale=1, scale_units='xy', angles='xy', width=0.01, label='PC2')
+
+# Project points onto PC1
+for point in X:
+    proj = origin + np.dot((point - origin), pca.components_[0]) * pca.components_[0]
+    plt.plot([point[0], proj[0]], [point[1], proj[1]], 'g--', linewidth=0.5, alpha=0.7)
+plt.title('PCA: Principal Components and Projections')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+plt.axis('equal')
+plt.grid(True)
+plt.show()
+
+```
+
+---
+
+# Intuition
+
+* PCA maximimizes the variance captured
+
+```{python ch1-pca-intuition-max-variance}
+#| echo: false
+#| fig.cap: "Intuition behind PCA"
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Generate random 2D data
+np.random.seed(42)
+mean = np.array([2, 3])
+cov = np.array([[3, 1.5], [1.5, 1]])
+data = np.random.multivariate_normal(mean, cov, size=100)
+
+# Center data
+data_mean = np.mean(data, axis=0)
+centered_data = data - data_mean
+
+# Compute covariance matrix and eigen decomposition
+cov_matrix = np.cov(centered_data, rowvar=False)
+eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
+
+# Principal component (first, largest eigenvalue)
+pc1 = eigenvectors[:, np.argmax(eigenvalues)]
+
+# Project each point onto PC1
+projections = np.dot(centered_data, pc1)[:, np.newaxis] * pc1
+projected_points = projections + data_mean
+
+# Plotting
+plt.figure(figsize=(8, 8))
+# Original data points
+plt.scatter(data[:, 0], data[:, 1], color='blue', alpha=0.6, label='Original Data')
+# Principal component axis line
+line_points = np.array([data_mean - 4*pc1, data_mean + 4*pc1])
+plt.plot(line_points[:, 0], line_points[:, 1], color='green', linewidth=2, label='PC1 Axis')
+# Projected points
+plt.scatter(projected_points[:, 0], projected_points[:, 1], color='red', alpha=0.6, label='Projections')
+
+# Connect each original point to its projection
+for original, proj in zip(data, projected_points):
+    plt.plot([original[0], proj[0]], [original[1], proj[1]], color='gray', linestyle='--', linewidth=0.5)
+
+plt.axis('equal')
+plt.title('PCA Demonstration: Data and Projections onto 1st Principal Component')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+```
+
+---
+
+* App to explain the intuition behind PCA
+
+![Animation](images/pca_rotating_clean.gif)
+
+![Animation](images/pca_pendulum_animation.gif)
+
+---
+
+```{python ch1-intuition-app}
+#| eval: false
+#| echo: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.patches import Circle
+
+# Set random seed for reproducibility
+np.random.seed(42)
+
+# Generate correlated data
+X = np.random.randn(100, 2)
+correlation_matrix = np.array([[1, 0.6], [0.6, 0.6]])
+L = np.linalg.cholesky(correlation_matrix)
+X = X @ L.T
+X = X - np.mean(X, axis=0)
+
+# Calculate eigenvectors
+cov_matrix = np.cov(X.T)
+eigenvals, eigenvecs = np.linalg.eigh(cov_matrix)
+
+# (animation code omitted in slides by default; eval=false)
+
+```
+
+---
+
+# Differences between PCA and linear regression
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)**: PCA is _not_ linear regression. It looks similar though, does it not?
+
+Linear regression is a predictive model. PCA is _not_. You cannot use PCA to predict anything. You can use PCA to only pick out patterns in your data.
+:::
+
+---
+
+# 📊 Key Concepts
+
+## 1. **Scores and Loadings**
+
+What is being plotted on the axes (PC1 and PC2) are the `scores`.
+
+The `scores` for each principal component are calculated as follows:
+
+$$
+PC_{1} = \alpha X + \beta Y + \gamma Z + .... 
+$$
+
+where $X$, $Y$ and $Z$ are the normalized *features*.
+
+The constants $\alpha$, $\beta$, $\gamma$ are determined by the PCA algorithm. They are called the `loadings`.
+
+---
+
+## 2. **Linear combinations**
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)**: The principal components are *linear combinations* of the original *features*. Hence they can be a bit difficult to interpret. 
+:::
+
+---
+
+## 3. **Variance**
+
+* Variance = how spread out the data is.
+* PCA finds directions (principal components) that maximize variance.
+
+---
+
+# 🔬 Example: Gene Expression Data
+
+* Rows = samples (patients)
+* Columns = gene expression levels
+
+### Goal:
+
+* Reduce dimensionality from 20,000 genes to 2-3 PCs
+* Visualize patterns between patient groups (e.g., healthy vs. cancer)
+
+
+---
+
+# Lesson Summary
+
+* Basics of unsupervised learning
+
+* Useful for visualization, outlier detection and making sense of your data if there are many features
+
+- **What it is:** Discover hidden patterns or groupings in unlabeled data, without predicting a specific target.  
+- **Key techniques:**  
+  - **Clustering** for grouping similar observations  
+  - **Dimensionality reduction** (e.g. PCA) for compressing and visualizing high‑dimensional data  
+- **Why it matters:**  
+  - Reveals structure in customer segmentation, anomaly detection, image compression, etc.  
+  - Serves as exploratory analysis and preprocessing for downstream tasks  
+- **Information bottleneck:** Forcing models to squeeze data through a narrow bottleneck uncovers the most essential features and removes noise  
+- **Hands‑on example:** Apply PCA to crime‑and‑population data by state to project three features into two dimensions for visualization  
+- **Unsupervised vs. supervised:**  
+  - **Unsupervised:** No labels, focus on pattern discovery  
+  - **Supervised:** With _labels_, focus on _predicting_ a known outcome 
+
+---
+
+# Resources
+
+- [Introduction to Statistical Learning in Python book](https://www.statlearning.com/)
+
+- [Video lectures by the authors of the book Introduction to Statistical Learning in Python](https://www.youtube.com/playlist?list=PLoROMvodv4rNHU1-iPeDRH-J0cL-CrIda)
+
+- [Github repository with more theoretical material](https://github.com/neelsoumya/public_teaching_unsupervised_learning)
+
+- [Interactive explanations of machine learning models](https://mlu-explain.github.io)
+
+- [Mathematics behind unsupervised machine learning](https://mml-book.github.io/book/mml-book.pdf)

@@ -1,0 +1,1177 @@
+---
+title: Hands-on exercises (Applications of unsupervised machine learning)
+---
+
+::: {.callout-tip}
+#### Learning Objectives
+
+- Projects and practical examples of data that you try unsupervised learning techniques on
+- Learn how to evaluate the performance of unsupervised learning methods
+- Interpret and communicate the results of these models to each other
+:::
+<!-- end callout -->
+
+
+## Fun fact
+
+::: {.callout-tip}
+**Did you know?**: that unsupervised machine learning is the first step in building _large-language models (LLMs)_.
+
+[Watch this short video by 3blue1brown](https://www.youtube.com/watch?v=LPZh9BOjkQs)
+
+:::
+<!-- end callout -->
+
+
+## Exercises
+
+* Break up into small groups and work on any one of the following small projects.
+
+* None of the projects require any knowledge of biology or any other field.
+
+* If you are unsure, pick the first project on electronic healthcare records.
+
+* I will be doing a _live coding session_ (code walkthrough).
+
+
+### Project using electronic healthcare records data {#sec-exr_title_EHR}
+
+::::: {#ex-title-EHR .callout-exercise}
+
+#### Electronic healthcare records data
+
+{{< level 3 >}}
+
+
+For this exercise we will be using some data from hospital electronic healthcare records (EHR). No knowledge of biology/healthcare is required for this.
+
+ 
+:::: {.callout-answer collapse="true"}
+
+#### Project briefing
+
+Here is a brief code snippet to help you load the data and get started.
+
+You have to follow the following steps:
+
+* Data Loading and Preprocessing: Loading a diabetes dataset and normalizing numerical features.
+
+* Dimensionality Reduction: Applying PCA and t-SNE to reduce the dimensions of the data for visualization and analysis.
+
+* Clustering: Performing K-Means clustering on the reduced data to identify potential patient subgroups.
+
+* Visualization: Visualizing the data in lower dimensions and the identified clusters to gain insights.
+
+::: {.panel-tabset group="language"}
+
+
+## Python
+
+```{python ch4-exercise-EHR-install}
+#| warning: false
+#| output: false
+#| echo: false   
+
+!pip install pandas scikit-learn seaborn matplotlib
+
+```
+
+```{python ch4-exercise-EHR-loaddata}
+#| warning: false
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
+
+#######################
+# Load diabetes data 
+#######################
+
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/refs/heads/main/course_files/data/diabetes_kaggle.csv"
+df = pd.read_csv(url)
+
+######################################
+# Perform data munging and filtering
+######################################
+print(df.head())
+
+# Normalize numeric columns
+numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+scaler = MinMaxScaler()
+df_normalized = df.copy() # make a copy
+df_normalized[numeric_cols] = scaler.fit_transform(df[numeric_cols])
+
+# ALTERNATIVE CODE (repeat for each numeric column)
+# Make a copy so the original DataFrame stays unchanged
+# df_normalized = df.copy()
+
+# Create the scaler
+# scaler = MinMaxScaler()
+
+# Select the 'Glucose' column as a DataFrame (double brackets keep 2D shape)
+# glucose_values = df_normalized[['Glucose']]
+
+# Fit the scaler and transform the values
+# glucose_scaled = scaler.fit_transform(glucose_values)
+
+# Put the scaled values back into the copy
+# df_normalized[['Glucose']] = glucose_scaled
+
+# Filter: Glucose > 0.5 and BMI < 0.3 (normalized values)
+filtered_df = df_normalized[
+    (df_normalized['Glucose'] > 0.5) &
+    (df_normalized['BMI'] < 0.3)
+]
+
+print(filtered_df.head())
+```
+
+* Visualize the data
+
+```{python ch4-ehr-viz}
+#| warning: false
+
+# Histogram
+plt.figure()
+sns.histplot(df_normalized['Glucose'], bins=30)
+plt.title('Distribution of Normalised Glucose')
+plt.xlabel('Normalised Glucose')
+plt.ylabel('Frequency')
+plt.show()
+
+```
+
+* Now visualize the other variables. Do you notice anything interesting/odd about them? _Hint_: use `sns.histplot()` as shown above or `plt.hist()`.
+
+* Data visualization is a key step in machine learning. Make sure to spend some time visualizing all the variables/features. Discuss the plots in your group.
+
+* Perform PCA
+
+```{python ch4-ehr-pca}
+#| warning: false
+
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+# Exclude the target column for PCA
+# We not want to include this because this is something you want to predict.
+# You can use this column in supervised machine learning.
+features = df_normalized.drop(columns=['Outcome'])
+
+# Apply PCA
+# This is where you fill in your code .........
+```
+
+* Fill in the rest of the code with your group members.
+
+* Perform PCA and visualize it. _Hint_: use `plt.scatter()` or `sns.scatterplot()`.
+
+```{python ch4-ehr-pca-hidefromstudents}
+#| warning: false
+#| echo: false
+#| output: false
+
+pca = PCA(n_components=2)
+principal_components = pca.fit_transform(features)
+
+# simpler way to plot using plt.scatter()
+plt.figure()
+plt.scatter(principal_components[:,0], principal_components[:,1], c = features["BMI"])
+plt.show()
+
+plt.figure()
+plt.scatter(principal_components[:,0], principal_components[:,1], c = df_normalized["Outcome"])
+plt.show()
+
+
+# Create a DataFrame for the principal components
+pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'])
+pca_df['Outcome'] = df_normalized['Outcome'].values
+
+# Visualize
+plt.figure()
+sns.scatterplot(x='PC1', y='PC2', hue='Outcome', data=pca_df, palette='Set1', alpha=0.7)
+plt.title('PCA of Diabetes Dataset')
+plt.xlabel('Principal Component 1')
+plt.ylabel('Principal Component 2')
+plt.legend(title='Outcome')
+plt.show()
+```
+
+* Evaluation (how to interpret the PCA plots?)
+
+- _Reminder_: In `plt.scatter`, the `c` parameter controls the marker colour (or colours).
+
+- The `alpha` parameter controls the transparency (opacity) of the markers.
+
+- When passing numbers, you can specify `cmap` (colour map) to control the gradient mapping (otherwise the default colourmap is used)
+
+-  Let us colour by the feature `BMI` now
+
+```{python ch4-ehr-interpret-pca}
+#| warning: false
+
+# Visualize PCA results colored by BMI
+plt.figure()
+scatter = plt.scatter(pca_df['PC1'], pca_df['PC2'], c = df_normalized['BMI'],
+                     cmap='viridis', alpha=0.7)
+plt.colorbar(scatter, label='BMI (normalized)')
+plt.title('PCA of Diabetes Dataset - Coloured by BMI')
+plt.xlabel('Principal Component 1')
+plt.ylabel('Principal Component 2')
+plt.show()
+```
+
+* Do you see any patterns?
+
+* Now colour by `Pregnancies`
+
+* Try other features: `Glucose`, `BloodPressure`, `SkinThickness`, `Insulin`, `DiabetesPedigreeFunction`, `Age`
+
+* Try spotting any patterns and discuss this in your group.
+
+* _Recall_: The primary goal of unsupervised machine learning is to uncover hidden patterns, structures, and relationships within the data. 
+
+- This can lead to the generation of new hypotheses about the underlying phenomena, which can then be tested in follow-up studies using statistical methods or through the application of supervised machine learning techniques with labeled data.
+
+- Essentially, unsupervised learning helps us explore the data and formulate questions that can be further investigated.
+
+- However it is never the end of the data science pipeline. It can lead to further investigations.
+
+* Now try tSNE on this data
+
+```{python ch4-ehr-tsne}
+#| warning: false
+
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+# Exclude the target column for t-SNE
+features = df_normalized.drop(columns=['Outcome'])
+
+# Apply t-SNE
+# This is where you fill in your code .........
+```
+
+* Perform tSNE on this data
+
+```{python ch4-ehrdata-tsne-hidden}
+#| warning: false
+#| echo: false
+#| output: false
+
+# Apply t-SNE
+tsne = TSNE(n_components=2, random_state=42, perplexity=30)
+tsne_results = tsne.fit_transform(features)
+
+# Create a DataFrame for the t-SNE results
+tsne_df = pd.DataFrame(data=tsne_results, columns=['TSNE1', 'TSNE2'])
+tsne_df['Outcome'] = df_normalized['Outcome'].values
+
+# TODO: use plt.scatter() here
+
+# Visualize
+plt.figure()
+sns.scatterplot(x='TSNE1', y='TSNE2', hue='Outcome', data=tsne_df, palette='Set1', alpha=0.7)
+plt.title('t-SNE of Diabetes Dataset')
+plt.xlabel('t-SNE Component 1')
+plt.ylabel('t-SNE Component 2')
+plt.legend(title='Outcome')
+plt.show()
+```
+
+* Vary the `perplexity` parameter
+
+* Now let us colour the tSNE plot by `BMI`
+
+```{python ch4-ehr-data-tsne-color}
+#| warning: false
+
+# Exclude the target column for t-SNE
+# Already done (so commenting out)
+# features_for_tsne = df_normalized.drop(columns=['Outcome', 'Cluster'])
+
+# Create a DataFrame for the t-SNE results
+tsne_df = pd.DataFrame(data=tsne_results, columns=['TSNE1', 'TSNE2'])
+
+# Visualize t-SNE colored by BMI
+plt.figure()
+scatter = plt.scatter(tsne_df['TSNE1'], tsne_df['TSNE2'], c=df_normalized['BMI'],
+                     cmap='viridis', alpha=0.7, s=50)
+plt.colorbar(scatter, label='BMI (normalized)')
+plt.title('t-SNE of Diabetes Dataset - Colored by BMI')
+plt.xlabel('t-SNE Component 1')
+plt.ylabel('t-SNE Component 2')
+plt.show()
+```
+
+* Now colour the tSNE plot by some other feature. Try `Glucose`, `BloodPressure`, `SkinThickness`, `Insulin`, `DiabetesPedigreeFunction`, `Age`
+
+* Do you observe any patterns? Discuss in your group.
+
+* Perform hierarchical clustering on this data
+
+```{python ch4-ehr-hclust-1}
+#| warning: false
+
+import pandas as pd
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Exclude the target column for clustering
+features = df_normalized.drop(columns=['Outcome'])
+
+# Perform hierarchical clustering
+# This is where you fill in your code .........
+```
+
+```{python ch4-hclust-ehr-notdisplay}
+#| warning: false
+#| echo: false
+#| output: false 
+
+Z = linkage(features, method='ward')
+
+# Plot dendrogram
+plt.figure()
+dendrogram(Z, truncate_mode='level', p=5)
+plt.title('Hierarchical Clustering Dendrogram')
+plt.xlabel('Sample Index')
+plt.ylabel('Distance')
+plt.show()
+```
+
+* Alternatively you can use `sns.clustermap()`.
+
+_Hint_: Here is some code to get you started.
+
+<!-- 
+# Python code that can be used later
+
+ehr_col_linkage = linkage(features.T)#, metric="ward")
+
+sns.clustermap(data = features,
+row_linkage = ehr_row_linkage,
+col_linkage = ehr_col_linkage,
+cmap = "vlag",
+standard_scale = 0
+)
+-->
+
+::: {.callout-hint collapse=”true”}
+```{python ch4-snsclustermap-ehr}
+#| warning: false
+
+ehr_row_linkage = linkage(features, method="ward")
+
+# plot heatmap using sns.clustermap()
+sns.clustermap(data = features,
+row_linkage = ehr_row_linkage,
+cmap = "vlag",
+standard_scale = 0
+)
+```
+:::
+<!-- end callout -->
+
+<!--
+* Plot heatmaps (heatmaps are a great way to visualize your data!)
+-->
+
+```{python ch4-ehr-heatmaps-show}
+#| warning: false
+#| echo: false
+#| output: false
+
+# Plot a heatmap of the normalized feature values for all samples
+plt.figure()
+sns.heatmap(features, cmap='viridis', cbar=True)
+plt.title('Heatmap of Normalized Feature Values (All Samples)')
+plt.xlabel('Features')
+plt.ylabel('Sample Index')
+plt.show()
+```
+
+* Perform k-means on this data.
+
+
+
+* Discuss in your group the outcome of this project.
+
+ - What are your key findings? 
+ - Do you think we can find partitions of patients/clusters of patients?
+ - Once you discover these partitions/clusters, what will you do with this information?
+
+
+
+## R
+
+
+:::
+
+::::
+
+:::::
+
+ 
+
+::: {.callout-hint collapse=”true”}
+
+Work in a group!
+
+:::
+
+
+
+
+
+
+### Project using single-cell sequencing data {#sec-exr_singlecell}
+
+::::: {#single-cell .callout-exercise}
+
+#### Single-cell sequencing
+
+{{< level 3 >}}
+
+
+For this exercise we will be using some single-cell sequencing data. No biological expertise is required for this.
+
+ 
+:::: {.callout-answer collapse="true"}
+
+#### Exercise
+
+Here is a brief code snippet to help you load the data and get started.
+
+You have to follow the following steps:
+
+* Data Loading and Preprocessing: Loading a single-cell sequencing dataset and normalizing features.
+
+::: {.panel-tabset group="language"}
+
+
+## Python
+
+* Install packages
+
+```{python ch4-single-cell-install}
+#| warning: false
+#| output: false
+ 
+!pip install scanpy scipy matplotlib pandas seaborn
+```
+
+* Load libraries
+
+```{python ch4-single-cell-loadlib}
+#| warning: false
+
+import scanpy as sc
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+```
+
+* Load and Preprocess Data: Load the pbmc3k dataset using `scanpy`, normalizes the total counts per cell to 10,000, and then applies a log transformation. 
+
+* Then picks out a few "marker" genes (genes that may be important for the disease based on our prior knowledge).
+
+* The single cell data is just a table of numbers: the rows are different cells, the columns are genes measured in those cells. Here is what this would look like:
+
+| Cell | CD3D | CD4 | CD8A | FOXP3 | IL2RA |
+|------|------|-----|------|-------|-------|
+| Cell_001 | 0.5 | 1.2 | 0.0 | 2.1 | 0.8 |
+| Cell_002 | 1.1 | 0.3 | 1.5 | 0.0 | 1.9 |
+| Cell_003 | 0.0 | 2.4 | 0.7 | 1.3 | 0.4 |
+| Cell_004 | 1.8 | 0.0 | 2.2 | 0.9 | 1.1 |
+| Cell_005 | 0.3 | 1.7 | 0.0 | 1.6 | 0.2 |
+
+
+```{python ch4-single-cell-loaddata}
+#| warning: false
+
+# 1. Load data and preprocess
+adata = sc.datasets.pbmc3k()
+sc.pp.normalize_total(adata, target_sum=1e4)
+sc.pp.log1p(adata)
+
+# 2. Subset to marker genes
+marker_genes = [
+    'CD3D','CD3E','CD4','CD8A',
+    'CD14','LYZ',
+    'MS4A1',
+    'GNLY','NKG7'
+]
+
+genes = [g for g in marker_genes if g in adata.var_names]
+
+expr = pd.DataFrame(
+    adata[:, genes].X.toarray(),
+    index=adata.obs_names,
+    columns=genes
+)
+
+print(expr.head())
+```
+
+* We now have a table of numbers: the rows are cells, and columns are genes measured in those cells.
+
+* Visualize the data. Use `plt.hist()` or `sns.histplot()`.
+
+* Now perform PCA on this data (_Hint_: `expr.values` has all the values. Perform PCA on this.)
+
+
+```{python ch4-single-cell-pca}
+#| warning: false
+#| echo: false
+#| output: false
+
+# 1) PCA via sklearn
+pca = PCA(n_components=2)
+pcs = pca.fit_transform(expr.values)  # shape (n_cells, 2)
+
+plt.figure()
+plt.scatter(pcs[:,0], pcs[:,1])
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("PCA on single-cell data")
+plt.show()
+```
+
+* Now colour this PCA plot by one marker gene `CD3D`. The `CD3D` gene is crucial for immune response. Mutations in this gene can lead to disease. _Hint_: `expr["CD3D"]` will get you all the values of the gene. Use that in the `c = ` option in `plt.scatter()`.
+
+
+
+```{python ch4-singlecell-pca-color}
+#| warning: false
+#| echo: false
+#| output: false
+
+print( expr["CD3D"] )
+
+plt.figure()
+plt.scatter(pcs[:,0], pcs[:,1], c = expr["CD3D"])
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("PCA on single-cell data")
+plt.show()
+```
+
+* Discuss in your group: what do you think the plot means?
+
+* Now try the other marker genes: `CD3E`,`CD4`,`CD8A`, `CD14`, `LYZ`, `MS4A1`, `GNLY`, `NKG7`
+
+* Discuss in your group: what do you think the plot means?
+
+* Now perform tSNE on this. _Hint_: `expr.values` has all the values. Perform tSNE on this.
+
+```{python ch4-single-cell-tsne-start}
+#| warning: false
+#| echo: false
+#| output: false
+
+# Perform tSNE
+tsne = TSNE(n_components=2, perplexity=30)
+tsne_coords = tsne.fit_transform(expr.values)
+
+# plot
+plt.figure()
+plt.scatter(tsne_coords[:,0], tsne_coords[:,1])
+plt.xlabel("tSNE 1")
+plt.ylabel("tSNE 2")
+plt.show()
+```
+
+* Now colour this PCA plot by one marker gene `CD3D`. _Hint_: `expr["CD3D"]` will get you all the values of the gene. Use that in the `c = ` option in `plt.scatter()`.
+
+```{python ch4-singlecell-tsne-color}
+#| warning: false
+#| echo: false
+#| output: false
+
+# plot
+plt.figure()
+plt.scatter(tsne_coords[:,0], tsne_coords[:,1], c = expr["CD3D"])
+plt.xlabel("tSNE 1")
+plt.ylabel("tSNE 2")
+plt.show()
+```
+
+* Discuss in your group: what do you think the plot means?
+
+* Now try the other marker genes: `CD3E`,`CD4`,`CD8A`, `CD14`, `LYZ`, `MS4A1`, `GNLY`, `NKG7`
+
+* Discuss in your group: what do you think the plot means?
+
+* _Reminder_: tSNE is stochastic. 
+
+
+* Run tSNE again. Do the clusters remain the same? Can you see the same patterns?
+
+* Run tSNE with a different perplexity value. Do the clusters remain the same?
+
+* Discuss in your group your key findings. What can you say about these clusters?
+
+* Now perform hierarchical clustering on this data.
+
+<!-- https://github.com/neelsoumya/python_machine_learning/blob/main/exercise_singlecell_clustering.ipynb -->
+
+
+```{python ch4-single-cell-hclust-simple}
+#| warning: false
+#| echo: false
+#| output: false
+
+from scipy.cluster.hierarchy import dendrogram, linkage
+from matplotlib import pyplot as plt
+
+# compute linkage
+linked = linkage(expr.values, method="ward")
+
+# plot dendrogram
+plt.figure()
+dendrogram(linked)
+plt.title('Hierarchical Clustering on Single-cell data (Simple)')
+plt.xlabel('Sample Index')
+plt.ylabel('Distance')
+plt.show()
+```
+
+
+
+* Try a few distance functions and linkage functions. 
+
+* Plot heatmaps or clustermaps (_Hint_: seaborn `clustermap` does both dendrograms + heatmap in one shot). A representative plot is shown below. Can you try to get a plot similar to this?
+
+* _Hint_: Here is some code to get you started.
+
+::: {.callout-hint collapse=”true”}
+
+```python
+from scipy.cluster.hierarchy import linkage
+from scipy.spatial.distance import pdist
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# compute linkage
+cell_link = linkage( pdist(expr.T, metric="euclidean"), method="ward" )
+gene_link = linkage( pdist(expr,   metric="euclidean"), method="ward" )
+
+# seaborn clustermap does both dendrograms + heatmap in one shot
+# Fill in the code below .......
+sns.clustermap(.......)
+```
+
+:::
+<!-- end callout -->
+
+
+<!--
+TODO: XX refine and introduce `sns.clustermap` elsewhere also
+-->
+
+
+```{python ch4-singlecell-clustermap}
+#| warning: false
+#| echo: false
+
+from scipy.cluster.hierarchy import linkage
+from scipy.spatial.distance import pdist
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# compute linkage
+cell_link = linkage( pdist(expr.T, metric="euclidean"), method="ward" )
+gene_link = linkage( pdist(expr,   metric="euclidean"), method="ward" )
+
+# seaborn clustermap does both dendrograms + heatmap in one shot
+sns.clustermap(data = expr,
+    row_linkage = gene_link,
+    col_linkage = cell_link,
+    cmap = "vlag",
+    standard_scale=0
+    )
+```
+
+
+* Perform k-means on this data.
+
+* Discuss in your group the outcome of this project.
+
+ - What are your key findings? 
+ - Do you think we can find partitions of cells/clusters of cells?
+ - What can you do with these partitions?
+
+
+<!-- 
+More resources on single-cell analysis
+
+https://www.sc-best-practices.org/cellular_structure/clustering.html
+-->
+
+
+## R
+
+
+:::
+
+::::
+
+:::::
+
+ 
+
+::: {.callout-hint collapse=”true”}
+
+Work in a group!
+
+:::
+
+
+
+
+
+
+
+
+### Project using GapMinder data {#sec-gapminder}
+
+::::: {#ex-gapminder .callout-exercise}
+
+#### GapMinder data
+
+{{< level 3 >}}
+
+
+For this exercise we will be using sociological data.
+
+ 
+:::: {.callout-answer collapse="true"}
+
+#### Exercise
+
+
+In this exercise you will explore the _Gapminder_ dataset, focusing on life expectancy, GDP per capita, and population data. 
+
+The Gapminder dataset contains global development indicators over time, tracking 142 countries from 1952 to 2007 at 5-year intervals.
+
+* Dataset Features
+
+### 1. **`country`** (Categorical)
+- **Type**: String/Categorical variable
+- **Description**: The name of the country
+- **Example**: "Afghanistan", "Albania", "Algeria", etc.
+- **Purpose**: Identifies which country each observation belongs to
+- **Unique values**: 142 different countries
+
+### 2. **`year`** (Numerical)
+- **Type**: Integer
+- **Description**: The year of the observation
+- **Range**: 1952 to 2007
+- **Interval**: Every 5 years (1952, 1957, 1962, 1967, 1972, 1977, 1982, 1987, 1992, 1997, 2002, 2007)
+- **Purpose**: Tracks temporal changes in development indicators
+
+### 3. **`pop`** (Numerical)
+- **Type**: Float
+- **Description**: Total population of the country
+- **Units**: Number of people
+- **Range**: From thousands to over 1 billion
+- **Example**: 8,425,333 people in Afghanistan in 1952
+- **Purpose**: Measures country size and demographic changes over time
+
+### 4. **`continent`** (Categorical)
+- **Type**: String/Categorical variable
+- **Description**: The continent where the country is located
+- **Categories**: "Africa", "Americas", "Asia", "Europe", "Oceania"
+- **Purpose**: Groups countries by geographical region for comparative analysis
+
+### 5. **`lifeExp`** (Numerical)
+- **Type**: Float
+- **Description**: Life expectancy at birth
+- **Units**: Years
+- **Range**: Typically 20-85 years
+- **Example**: 28.801 years in Afghanistan in 1952
+- **Purpose**: Key health indicator measuring average lifespan
+
+### 6. **`gdpPercap`** (Numerical)
+- **Type**: Float
+- **Description**: Gross Domestic Product per capita
+- **Units**: US dollars (adjusted for inflation)
+- **Range**: From hundreds to tens of thousands of dollars
+- **Example**: $779.45 in Afghanistan in 1952
+- **Purpose**: Economic indicator measuring average wealth per person
+
+
+You will perform the following steps initially:
+
+1. *Data Loading and Setup*: The gapminder dataset is loaded, and necessary libraries for data manipulation, visualization, and dimensionality reduction are imported.  
+2. *Feature Selection*: The features `lifeExp`, `gdpPercap`, and `pop` are selected for analysis.
+
+
+Here is a brief code snippet to help you load the data and get started.
+
+
+::: {.panel-tabset group="language"}
+
+
+## Python
+
+* Install packages
+
+```{python ch4-gapminder-install}
+#| warning: false
+#| output: false
+ 
+!pip install scipy matplotlib pandas seaborn
+```
+
+* Load libraries
+
+```{python ch4-single-cell-loadlib}
+#| warning: false
+
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from scipy.cluster.hierarchy import dendrogram, linkage
+```
+
+* Load data
+
+```{python ch4-gapminder-loadpackages}
+#| warning: false
+
+# Download Gapminder data
+url = "https://raw.githubusercontent.com/resbaz/r-novice-gapminder-files/master/data/gapminder-FiveYearData.csv"
+gap = pd.read_csv(url)
+
+print(gap.head())
+```
+
+* Subset to countries in Asia and aggregate
+
+```{python ch4-gapminder-subsetdata}
+#| warning: false
+
+# Aggregate by country: mean of features for each Asian country
+features = ['lifeExp', 'gdpPercap']
+asia_gap_unique = gap[gap['continent'] == 'Asia'].groupby('country')[features].mean().reset_index()
+
+print(asia_gap_unique.head())
+```
+
+* Visualize the features by using `plt.hist()` or `sns.histplot()`
+
+* Then perform PCA on it. _Hint_: you need to normalize your data also. 
+
+Does your plot look like this?
+
+<!-- 
+The function `pca` in the package `pca` will do it for you if you set `normalize = True`.
+-->
+
+```{python ch4-gapminder-pca-normalize}
+#| warning: false
+#| echo: false
+
+from sklearn.preprocessing import StandardScaler
+
+# normalize
+scaler = StandardScaler()
+asia_gap_unique_norm = scaler.fit_transform(asia_gap_unique[features])
+
+# Perform PCA
+pca = PCA(n_components=2)
+pcs = pca.fit_transform(asia_gap_unique_norm)
+
+# plot
+plt.figure()
+plt.scatter(pcs[:,0], pcs[:,1])#, c=asia_gap_unique["country"])
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("Plot of PCA on Gapminder data for Asian countries")
+plt.show()
+```
+
+* Is there anything "odd" about this plot? Discuss this in your group.
+
+```{python ch4-gapminder-scale-pcafit-pcapackageNOTrun}
+#| warning: false
+#| echo: false
+#| output: false
+#| eval: false
+
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from pca import pca
+
+# Standardize selected features
+#scaler = StandardScaler()
+#asia_gap_std = asia_gap_unique.copy()
+#asia_gap_std[features] = scaler.fit_transform(asia_gap_std[features])
+
+# PCA on standardized features (normalize=False because we have already standardized)
+model = pca(n_components=2, normalize=True)
+results = model.fit_transform(asia_gap_unique[features])
+
+# Join PC scores with country names
+# asia_pcs = asia_gap_std[['country']].join(results['PC'])
+
+# Optional: plots
+model.plot()          # explained variance
+model.biplot(legend=True)#, labels=asia_gap_std['country'])
+```
+
+* Now label each point on the PCA biplot this by country names
+
+_Hint_: The following code will not work (since "country" is categorical). You will have to a bit creative!
+
+```python
+plt.figure()
+plt.scatter(pcs[:,0], pcs[:,1]), c=asia_gap_unique["country"])
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("Plot of PCA on Gapminder data for Asian countries")
+plt.show()
+```
+
+::: {.callout-hint collapse=”true”}
+
+Here are some code hints to help you.
+
+```{python ch4-gapminder-pca-color-bycountry}
+#| warning: false
+#| eval: false
+
+plt.figure()
+plt.scatter(pcs[:,0], pcs[:,1])
+
+# add country labels
+for i, country in enumerate( asia_gap_unique["country"] ):
+    # fill in your code here 
+    plt.annotate(.....)
+
+plt.show()
+```
+
+Your plot may look like this:
+
+```{python ch4-gapminder-pca-color-bycountry-codenotshown}
+#| warning: false
+#| echo: false
+
+plt.figure()
+plt.scatter(pcs[:,0], pcs[:,1])
+
+# add country labels
+for i, country in enumerate( asia_gap_unique["country"] ):
+    # plt.annotate(country, (pcs[i,0], pcs[i,1]) )
+
+    plt.annotate(country, (pcs[i,0], pcs[i,1]), 
+        xytext=(5, 5), textcoords='offset points',
+        fontsize=8, alpha=0.7)
+
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("Plot of PCA on Gapminder data for Asian countries")
+plt.show()
+```
+
+
+:::
+<!-- end callout -->
+
+* What does `PC1` mean? Are there any features that are correlated with `PC1`?
+
+_Hint_: Perform a scatterplot (`plt.scatter()`) for each feature vs. `PC1`
+
+Can we use PCA to approximate the human development index?
+
+```{python ch4-gapminder-pc1-correlation}
+#| warning: false
+#| echo: false
+#| output: false
+
+plt.figure()
+plt.scatter(asia_gap_unique["lifeExp"], pcs[:,0])
+plt.xlabel('PC1')
+plt.ylabel('Mean Life Expectancy')
+plt.title('Life Expectancy vs PC1 (Asian Countries)')
+plt.show()
+```
+
+* Perform tSNE on this data
+
+```{python ch4-gapminer-tsne}
+#| warning: false
+#| echo: false
+
+from sklearn.manifold import TSNE
+
+# run tSNE
+tsne = TSNE(n_components=2, perplexity=30)
+asia_tsne = tsne.fit_transform(asia_gap_unique_norm)
+
+# plot tSNE
+plt.figure()
+plt.scatter(asia_tsne[:,0], asia_tsne[:,1])
+plt.xlabel('t-SNE 1')
+plt.ylabel('t-SNE 2')
+plt.title('t-SNE Visualization (Asian Countries)')
+#plt.grid(True)
+plt.show()
+```
+
+* Do you know notice anything "odd"/"interesting" about this plot?
+
+* Change the `perplexity` parameter and observe what it does to the plot.
+
+* Now add the labels of the countries to this tSNE plot. Here is some _code_ to give you a hint.
+
+
+::: {.callout-hint collapse=”true”}
+
+Here are some code hints to help you.
+
+```{python ch4-gapminder-pca-color-bycountry}
+#| warning: false
+#| eval: false
+
+plt.figure()
+plt.scatter(asia_tsne[:,0], asia_tsne[:,1])
+
+# add country labels
+for i, country in enumerate( asia_gap_unique["country"] ):
+    # fill in your code here 
+    plt.annotate(.....)
+
+plt.show()
+```
+
+<!--Your plot may look like this: -->
+
+```{python ch4-gapminder-pca-color-bycountry-codenotshown}
+#| warning: false
+#| echo: false
+#| output: false
+
+plt.figure()
+plt.scatter(asia_tsne[:,0], asia_tsne[:,1])
+
+# add country labels
+for i, country in enumerate( asia_gap_unique["country"] ):
+    # plt.annotate(country, (asia_tsne[i,0], asia_tsne[i,1]) )
+
+    plt.annotate(country, (asia_tsne[i,0], asia_tsne[i,1]), 
+        xytext=(5, 5), textcoords='offset points',
+        fontsize=8, alpha=0.7)
+
+plt.xlabel('t-SNE 1')
+plt.ylabel('t-SNE 2')
+plt.title('t-SNE Visualization (Asian Countries)')
+plt.show()
+```
+:::
+<!-- end callout -->
+
+* Now perform hierarchical clustering on this data. 
+
+```{python ch4-gapminder-hclust}
+#| warning: false
+#| echo: false
+#| output: false
+
+from scipy.cluster.hierarchy import dendrogram, linkage
+
+Z = linkage(asia_gap_unique_norm, method="ward")
+
+plt.figure()
+dendrogram(Z, labels=asia_gap_unique["country"].values)
+plt.show()
+
+sns.clustermap(data=asia_gap_unique_norm,
+    metric="euclidean",
+    method="ward",
+    row_cluster=True,
+    col_cluster=True,
+    cmap="vlag")
+
+# to get the labels make a dataframe
+df_asia_heatmap = pd.DataFrame(data = asia_gap_unique_norm, 
+                                 index = asia_gap_unique["country"],
+                                 columns = features
+)
+
+# now plot this using sns.clustermap()
+sns.clustermap(data=df_asia_heatmap,
+    metric="euclidean",
+    method="ward",
+    row_cluster=True,
+    col_cluster=True,
+    cmap="vlag")
+```
+
+* Discuss the outcomes of your project in your group. Explain your key outcomes (in a few minutes) to everyone in the class. 
+
+
+## R
+
+
+:::
+
+::::
+
+:::::
+
+ 
+
+::: {.callout-hint collapse=”true”}
+
+Work in a group!
+
+:::
+
+
+## Wrap-up
+
+* Remember that learning does not stop once you leave class.
+
+* Continue practicing your newly learnt skills on new data.
+
+* Please take a few minutes to fill out the survey!
+
+<!--
+* You can stay in touch with your group members on `Slack` or `Discord` and discuss the latest papers using the tool `Hypothesis`. You can use this to run your own reading group or hackathon.
+-->
+
+
+
+## Summary
+
+::: {.callout-tip}
+#### Key Points
+
+- Understand real-world scenarios where unsupervised learning is applied
+- Identify situations where PCA and other dimensionality reduction techniques may not be effective
+- Practical examples of data that you try unsupervised learning techniques on
+:::
+
+
+

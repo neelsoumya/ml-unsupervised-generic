@@ -1,0 +1,19 @@
+Package: mlunsupervised
+Title: Applied Unsupervised Machine Learning Course Materials
+Version: 0.1.0
+Authors@R: 
+    person("Soumya", "Banerjee", email = "sb2333@cam.ac.uk", role = c("aut", "cre"))
+Description: A collection of materials for the Applied Unsupervised Machine Learning course,
+    including Quarto chapters, example scripts, datasets, and setup instructions.
+License: CC-BY-4.0
+LazyData: true
+RoxygenNote: 7.2.3
+Encoding: UTF-8
+URL: https://github.com/cambiotraining/ml-unsupervised
+BugReports: https://github.com/cambiotraining/ml-unsupervised/issues
+Imports:
+    tidyverse,
+    knitr,
+    rmarkdown
+Suggests:
+    devtools

@@ -1,0 +1,16 @@
+# This script installs necessary R packages for data analysis and visualization.
+install.packages("quarto")
+install.packages("dplyr")
+install.packages("tidyverse")
+install.packages("ggplot2")
+install.packages("reticulate")
+install.packages("rmarkdown")
+install.packages("knitr")
+
+library(quarto)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(reticulate)
+library(rmarkdown)
+library(knitr)

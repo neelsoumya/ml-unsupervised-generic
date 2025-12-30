@@ -1,0 +1,1059 @@
+---
+title: "Normalizing your data and PCA"
+format: html
+---
+
+## Introduction
+
+This chapter demonstrates basic unsupervised machine learning concepts using Python.
+
+::: {.callout-tip}
+## Learning Objectives
+
+- Understand the difference between supervised and unsupervised learning.
+- Apply PCA and clustering to example data.
+- Visualize results.
+:::
+<!-- end callout -->
+
+
+## Normalization (Z-score Standardization)
+
+Normalization, specifically Z-score standardization, is a data scaling technique that transforms your data to have a mean of 0 and a standard deviation of 1. This is useful for many machine learning algorithms that are sensitive to the scale of input features.
+
+_Intuition_: the value represents the number of standard deviations away from the mean for that variable. For example an 80-year-old person might be 3 standard deviations above the mean age.
+
+The formula for Z-score is:
+
+$$ z = \frac{x - \mu}{\sigma} $$
+
+Where:
+- $x$ is the original data point.
+- $\mu$ is the mean of the data.
+- $\sigma$ is the standard deviation of the data.
+
+For example, say you have two variables or *features* on very different scales. 
+
+
+| Age | Weight (grams) |
+|-----|------------|
+| 25  | 65000      |
+| 30  | 70000      |
+| 35  | 75000      |
+| 40  | 80000      |
+| 45  | 85000      |
+| 50  | 90000      |
+| 55  | 95000      |
+| 60  | 100000     |
+| 65  | 105000     |
+| 70  | 110000     |
+| 75  | 115000     |
+| 80  | 120000     |
+
+If these are not brought on similar scales, weight will have a dispproportionate influence on whatever machine learning model we build.
+
+Hence we normalize each of the features *separately*, i.e. age is normalized relative to age and weight is normalized relative to weight.
+
+```{python ch2-gen_data}
+#| warning: false
+#| echo: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+
+# 1. Generate age and weight data
+np.random.seed(42)
+age = np.random.normal(45, 15, 100)  # 100 people, mean age 45, std 15
+age = np.clip(age, 18, 80)  # Keep ages between 18-80
+
+weight = 70 + (age - 45) * 0.3 + np.random.normal(0, 10, 100)  # Weight correlated with age
+weight = np.clip(weight, 45, 120)  # Keep weights between 45-120 kg
+
+print("Original data:")
+print(f"Age: mean={age.mean():.1f}, std={age.std():.1f}")
+print(f"Weight: mean={weight.mean():.1f}, std={weight.std():.1f}")
+
+# 2. Normalize the data
+scaler = StandardScaler()
+data = np.column_stack((age, weight))
+normalized_data = scaler.fit_transform(data)
+
+age_normalized = normalized_data[:, 0]
+weight_normalized = normalized_data[:, 1]
+
+# Histogram: Age (Original)
+plt.figure()
+plt.hist(age, bins=20, alpha=0.7)
+plt.title('Age Distribution (Original)')
+plt.xlabel('Age')
+plt.ylabel('Frequency')
+plt.grid(True, alpha=0.3)
+plt.show()
+
+# Histogram: Age (Normalized)
+plt.figure()
+plt.hist(age_normalized, bins=20, alpha=0.7)
+plt.title('Age Distribution (Normalized)')
+plt.xlabel('Age (Z-score)')
+plt.ylabel('Frequency')
+plt.grid(True, alpha=0.7)
+
+plt.tight_layout()
+plt.show()
+```
+
+* In an ideal scenario a feature/variable such as `weight` might be transformed in the following way after normalization:
+
+```{python ch2-norm-beforeafter-pretty}
+#| warning: false
+#| echo: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Seed for reproducibility
+rng = np.random.default_rng(42)
+
+# Example variable: "weight" (simulate in kg, roughly normal)
+weights = rng.normal(loc=70000, scale=12, size=1000)  # mean=70000 g,, std=12 kg
+
+# Z-score normalization (no external dependencies)
+weights_mean = weights.mean()
+weights_std = weights.std(ddof=0)  # population std for simplicity
+weights_z = (weights - weights_mean) / weights_std
+
+#print(f"Original mean: {weights_mean:.2f}, std: {weights_std:.2f}")
+#print(f"Z-scored mean: {weights_z.mean():.2f}, std: {weights_z.std(ddof=0):.2f}")
+
+# Plot histograms
+fig, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
+
+# Before normalization
+axes[0].hist(weights, bins=30, density=True, color="#4C78A8", alpha=0.8, edgecolor="white")
+axes[0].set_title("Weight (Before z-score)")
+axes[0].set_xlabel("grams")
+axes[0].set_ylabel("Density")
+
+# After normalization
+axes[1].hist(weights_z, bins=30, density=True, color="#F58518", alpha=0.8, edgecolor="white")
+axes[1].set_title("Weight (After z-score)")
+axes[1].set_xlabel("z-score")
+axes[1].set_ylabel("Density")
+axes[1].axvline(0, color="black", linestyle="--", linewidth=1)  # mean at 0
+axes[1].set_xlim(-4, 4)
+
+plt.show()
+```
+
+* And here is what it might look like for a feature such as `age`.
+
+```{python ch2-norm-zscore-age}
+#| warning: false
+#| echo: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Seed for reproducibility
+rng = np.random.default_rng(42)
+
+# Example variable: "age" in years, constrained to [0, 120]
+# Use a scaled Beta distribution to keep values within 0–120 with a realistic skew
+ages = 120 * rng.beta(a=2.5, b=3.5, size=2000)
+
+# Z-score normalization
+age_mean = ages.mean()
+age_std = ages.std(ddof=0)
+ages_z = (ages - age_mean) / age_std
+
+#print(f"Original mean: {age_mean:.2f}, std: {age_std:.2f}")
+print(f"Z-scored mean: {ages_z.mean():.2f}, std: {ages_z.std(ddof=0):.2f}")
+
+# Plot histograms
+fig, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
+
+# Before normalization
+axes[0].hist(ages, bins=30, range=(0, 120), density=True, color="#4C78A8", alpha=0.85, edgecolor="white")
+axes[0].set_title("Age (Before z-score)")
+axes[0].set_xlabel("years")
+axes[0].set_ylabel("Density")
+axes[0].set_xlim(0, 120)
+
+# After normalization
+axes[1].hist(ages_z, bins=30, density=True, color="#F58518", alpha=0.85, edgecolor="white")
+axes[1].set_title("Age (After z-score)")
+axes[1].set_xlabel("z-score")
+axes[1].set_ylabel("Density")
+axes[1].axvline(0, color="black", linestyle="--", linewidth=1)
+axes[1].set_xlim(-3.5, 3.5)
+
+plt.show()
+```
+
+
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)**: 
+
+* After normalization, the *normalized features* are on comparable scales. The features (such as `weight` and `age`) no longer have so much variation. They can be used as input to machine learning algorithms.
+
+* The rule of thumb is to (almost) always *normalize* your data before you use it in a machine learning algorithm. (There are a few exceptions and we will point this out in due course).
+
+:::
+<!-- end callout -->
+
+
+
+
+
+
+
+### Data visualization before doing PCA {#sec-datavizbeforePCA}
+
+::::: {#ex-titledaatviz .callout-exercise}
+
+#### exercise_data_visualization
+
+{{< level 1 >}}
+
+You should always visualize your data before trying any algorithms on it.
+
+Discuss in a group. What is wrong with the following plot?
+
+
+```{python ch2-exercise-dataviz-150yearold}
+#| warning: false
+#| echo: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Seed for reproducibility
+rng = np.random.default_rng(42)
+
+# Example variable: "age" in years, constrained to [0, 120]
+# Use a scaled Beta distribution to keep values within 0–120 with a realistic skew
+ages = 160 * rng.beta(a=2.5, b=3.5, size=2000)
+
+# Z-score normalization
+age_mean = ages.mean()
+age_std = ages.std(ddof=0)
+ages_z = (ages - age_mean) / age_std
+
+#print(f"Original mean: {age_mean:.2f}, std: {age_std:.2f}")
+#print(f"Z-scored mean: {ages_z.mean():.2f}, std: {ages_z.std(ddof=0):.2f}")
+
+# Plot histograms
+fig, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
+
+# Before normalization
+axes[0].hist(ages, bins=50, density=True, color="#4C78A8", alpha=0.85, edgecolor="white")
+axes[0].set_title("Age (Before z-score)")
+axes[0].set_xlabel("years")
+axes[0].set_ylabel("Density")
+axes[0].set_xlim(0, 150)
+
+# After normalization
+axes[1].hist(ages_z, bins=50, density=True, color="#F58518", alpha=0.85, edgecolor="white")
+axes[1].set_title("Age (After z-score)")
+axes[1].set_xlabel("z-score")
+axes[1].set_ylabel("Density")
+axes[1].axvline(0, color="black", linestyle="--", linewidth=1)
+axes[1].set_xlim(-3.5, 3.5)
+
+plt.show()
+``` 
+
+:::: {.callout-answer collapse="true"}
+
+#### Looking at your data
+
+Always look at your data before you try and machine learning technique on it. There is a 150 year old person in your data!
+
+
+
+::::
+
+:::::
+
+
+
+
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)**: 
+
+* Visualize your data before you do any normalization. If there is anything odd about your data, discuss this with the person who gave you the data or did the experiment. This could be an error in the machine that generated the data or a data entry error. If there is justification, you can remove the data point.
+
+* Then perform normalization and apply a machine learning technique.
+
+:::
+<!-- end callout -->
+
+
+
+
+## Setup
+
+```{python}
+#| echo: true
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+```
+
+## Example Data
+
+```{python}
+#| echo: false
+
+# Generate synthetic data
+np.random.seed(42)
+X = np.vstack([
+    np.random.normal(loc=[0, 0], scale=1, size=(50, 2)),
+    np.random.normal(loc=[5, 5], scale=1, size=(50, 2))
+])
+plt.scatter(X[:, 0], X[:, 1])
+plt.title("Synthetic Data")
+plt.show()
+
+```
+
+## PCA Example
+
+<!--open tab-->
+::: {.callout-note collapse="true"}
+::: {.panel-tabset group="language"}
+
+## Python
+
+```{python ch1-simple-pca-code-show}
+#| echo: true
+#| fig-cap: "A simple PCA plot (biplot)"
+
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X)
+plt.scatter(X_pca[:, 0], X_pca[:, 1])
+plt.title("PCA Projection")
+plt.show()
+```
+
+## R
+
+:::
+:::
+<!--close tab-->
+
+
+
+
+## Scree plot
+
+A *scree* plot is a simple graph that shows how much variance (information) each principal component explains in your data after running PCA. The x-axis shows the principal components (PC1, PC2, etc.), and the y-axis shows the proportion of variance explained by each one.
+
+You can use a scree plot to decide how many principal components to keep: look for the point where the plot levels off (the *elbow*): this tells you that adding more components doesn’t explain much more variance.
+
+
+```{python ch2-screeplot}
+#| warning: false
+
+# Scree plot: variance explained by each component
+plt.plot(range(1, len(pca.explained_variance_ratio_) + 1), pca.explained_variance_ratio_, marker='o')
+plt.title("Scree Plot")
+plt.xlabel("Principal Component")
+plt.ylabel("Variance Explained Ratio")
+plt.show()
+```
+
+A scree plot may have an *elbow* like the plot below.
+
+```{python ch2-screeplot-ideal}
+#| warning: false
+#| echo: false
+#| fig.cap: "An idealized scree plot"
+
+from sklearn.datasets import make_blobs
+
+# Generate synthetic data
+X, y = make_blobs(n_samples=100, n_features=5, centers=3, random_state=42)
+
+# Print the shape of the generated data
+# print(X.shape)
+
+from sklearn.preprocessing import StandardScaler
+
+# Standardize the data X
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Initialize PCA with all components
+pca = PCA(n_components=X_scaled.shape[1])
+
+# Fit PCA to the standardized data
+pca.fit(X_scaled)
+
+# Transform the standardized data
+X_pca = pca.transform(X_scaled)
+
+# Create a figure and axes for the plot
+plt.figure(figsize=(8, 5))
+
+# Plot the explained variance ratio
+plt.plot(range(1, pca.n_components_ + 1), pca.explained_variance_ratio_, marker='o', linestyle='--')
+
+# Add title and labels
+plt.title('Scree Plot')
+plt.xlabel('Principal Component')
+plt.ylabel('Explained Variance Ratio')
+
+# Add grid
+plt.grid(True)
+
+# Display the plot
+plt.show()
+```
+
+<!--
+## Loadings
+
+```{python ch2-loadings}
+
+# pca.components_.T
+#feature_names = ["Feature 1", "Feature 2"]  # Replace with your actual feature names if available
+#loadings = pd.DataFrame(pca.components_.T, columns=["PC1", "PC2"], index=feature_names)
+#print("PCA Loadings:")
+#print(loadings)
+
+```
+-->
+
+
+
+
+### Hands-on coding
+
+* Perform PCA on a dataset of US Arrests
+
+
+* Simple method first
+
+```{python ch1-python-install2}
+#| warning: false
+#| output: false
+
+!pip install pandas numpy scikit-learn seaborn matplotlib
+```
+
+* Load libraries and data
+
+```{python ch1-pca-handson-simple1}
+#| warning: false
+
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+import pandas as pd
+
+# Load the US Arrests data
+# Read the USArrests data directly from the GitHub raw URL
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/main/course_files/data/USArrests.csv"
+
+X = pd.read_csv(url, index_col=0)
+
+# alternatively if you have downloaded the data folder 
+#   on your computer try the following
+# import os
+# os.getcwd()
+# os.chdir("data")
+# X = pd.read_csv("USArrests.csv", index_col=0)
+
+# what is in the data?
+X.head()
+
+```
+
+* Normalize the data
+
+```{python ch1-pca-hands-on-pcado}
+#| warning: false
+
+scaler_standard = StandardScaler()
+X_scaled = scaler_standard.fit_transform(X)
+```
+
+
+* Perform PCA
+
+```{python ch1-pca-perform}
+#| warning: false
+
+pca_fn = PCA()
+X_pca = pca_fn.fit_transform(X_scaled)
+```
+
+* Plotting
+
+```{python ch1-pca-plotsimple}
+#| warning: false
+
+plt.figure()
+plt.scatter(X_pca[:,0], X_pca[:,1])
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("PCA on crime data")
+plt.show()
+```
+
+* Label the plot by US State
+
+_Note_: These are now categorical, i.e. these take on discrete values (as opposed to continuous). 
+
+* In machine learning, we will need to deal with them differently.
+
+* Discussion: on how to _encode_ these values and how to ensure that these values are _equidistant_ from each other.
+
+```{python ch1-pca-simple-label-pcaplot}
+#| warning: false
+
+# States come from the index
+X.index
+
+states = X.index # fetch states and assign it to a variable
+
+# map each state to a code
+colour_codes_states = pd.Categorical(states).codes
+
+# pd.Categorical(states): Converts the sequence states (e.g., a list/Index of state names) into a categorical type. It internally builds:
+# categories: the unique labels (e.g., all distinct state names)
+# codes: integer labels pointing to those categories
+
+plt.figure()
+plt.scatter(X_pca[:,0], X_pca[:,1], c = colour_codes_states)
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("PCA on crime data (coloured by US state)")
+plt.show()
+```
+
+
+* A method to have text labels in the PCA plot 
+
+We need slightly more complex code to do this.
+
+
+::: {.callout-note collapse="true"}
+::: {.panel-tabset group="language"}
+
+## Python
+
+```{python ch1-pca-plot-withtext-uscrimedata-complex}
+#| warning: false
+#| echo: true
+#| fig-cap: "A simple PCA plot with text labels"
+
+
+#loadings = pca.components_.T * np.sqrt(pca.explained_variance_)  # variable vectors
+
+# Plot
+fig, ax = plt.subplots()
+
+# Scatter of states
+ax.scatter(X_pca[:, 0], X_pca[:, 1], alpha=0.7)
+
+# Label each state
+# X.index has the state names
+# go through each point (which is each row in the table)
+for i, state in enumerate(X.index):
+    ax.text(X_pca[i, 0], X_pca[i, 1], state, fontsize=8, va="center", ha="left")
+
+ax.set_xlabel("PC1")
+ax.set_ylabel("PC2")
+ax.set_title("PCA Biplot: US Arrests")
+
+plt.tight_layout()
+plt.show()
+```
+
+## R
+
+:::
+:::
+<!--close tab-->
+
+
+
+
+
+* Get the loadings
+
+::: {.callout-note collapse="true"}
+::: {.panel-tabset group="language"}
+
+## Python
+
+```{python ch1-pca-plot-withtext-uscrimedata-complex-loadings}
+#| warning: false
+
+# get the loadings
+# pca.components_ contains the principal component vectors
+# transpose them using T
+loadings = pca_fn.components_.T
+
+# create a data frame
+df_loadings = pd.DataFrame(loadings,
+                            index=X.columns
+)
+
+# the first column is PC1, then PC2, and so on ...
+print(df_loadings)
+```
+
+## R
+
+:::
+:::
+<!--close tab-->
+
+
+
+
+### Interpreting the US Crime PCA biplot
+
+Here is an intutive explanation of the PCA biplot.
+
+
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)**: 
+
+- **Distances matter**: Points that are far apart represent states with more dissimilar overall crime/urbanization profiles. For example, **Vermont** being far from **California** indicates very different feature patterns in the variables used (e.g., assault, murder, urban population).
+- **PC1 (horizontal) ≈ Crime level/severity**: Higher values indicate greater overall crime intensity (e.g., higher assault/murder rates), lower values indicate lower crime intensity.
+- **PC2 (vertical) ≈ Urbanization**: States to the right tend to have higher urban population and associated traits; those to the left are more rural.
+- You can inspect the _loadings_ to understand what each principal component represents. 
+- We will have an exercise on this later.
+<!-- 
+- **Variable arrows**: Directions show how variables load on the components. Points near an arrow’s direction tend to have higher values for that variable.
+-->
+- **Reading clusters**: States that cluster together have similar profiles. States on opposite sides of the plot (e.g., Vermont vs. California) differ substantially along the dominant patterns captured by PC1 and PC2.
+
+
+* Interpretation of loadings:
+
+- PC1 (Urbanization axis): All crime variables (Murder, Assault, ViolentCrime) load positively, while UrbanPop has a smaller positive loading. This suggests PC1 captures overall crime levels.
+
+<!--
+- PC2 (Crime vs Urbanization axis): UrbanPop loads strongly negative, while crime variables load positively, creating a contrast between urban vs rural crime patterns.
+-->
+
+:::
+<!-- end callout -->
+
+
+
+
+
+::: {.callout-tip}
+**NOTE (IMPORTANT CONCEPT)**: 
+
+* Notice, that we have not _told_ PCA anything about the US states
+
+* Yet it is still able to _find_ some interesting patterns in the data
+
+* This is the strength of unsupervised machine learning
+
+:::
+<!-- end callout -->
+
+
+
+```{python ch1-pca-simple-label-pcaplot-legend}
+#| warning: false
+#| echo: false
+#| output: false
+
+# States come from the index
+X.index
+
+states = X.index # fetch states and assign it to a variable
+
+# map each state to a code
+colour_codes_states = pd.Categorical(states).codes
+
+# pd.Categorical(states): Converts the sequence states (e.g., a list/Index of state names) into a categorical type. It internally builds:
+# categories: the unique labels (e.g., all distinct state names)
+# codes: integer labels pointing to those categories
+
+plt.figure()
+plt.scatter(X_pca[:,0], X_pca[:,1], c = colour_codes_states)
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.title("PCA on crime data (coloured by US state)")
+
+# Legend (many entries; place outside and shrink font)
+
+# Build categorical codes and labels
+cats = pd.Categorical(states)
+colour_codes_states = cats.codes
+labels = cats.categories
+
+# Discrete colormap with one color per state
+cmap = plt.cm.get_cmap('tab20', len(labels))
+
+
+from matplotlib.lines import Line2D
+handles = [Line2D([0], [0], marker='o', color='w', label=lab,
+                  markerfacecolor=cmap(i), markeredgecolor='k', markersize=6)
+           for i, lab in enumerate(labels)]
+plt.legend(handles=handles, title="State", bbox_to_anchor=(1.02, 1), loc='upper left',
+           borderaxespad=0., ncol=2, fontsize=8)
+
+plt.tight_layout()
+plt.show()
+```
+
+<!--* Get the loadings -->
+
+```{python ch1-pca-simple-getlosdings}
+#| warning: false
+#| echo: false
+#| output: false
+#| eval: false
+
+import numpy as np
+
+# Apply PCA
+sk_pca = PCA(n_components=2)
+X_pca = sk_pca.fit_transform(X_scaled)
+
+# Loadings (correlation loadings since you standardized)
+feature_names = X.columns
+loadings = pd.DataFrame(
+    sk_pca.components_.T * np.sqrt(sk_pca.explained_variance_),
+    index=feature_names,
+    columns=["PC1", "PC2"]
+)
+print(loadings.round(3))
+```
+
+* Another method using the `pca` package; prettier plots
+
+Install the `pca` Python package
+
+
+```python
+!pip install pca
+```
+
+```{python ch2-exercise-pca}
+#| echo: false
+#| output: false
+#| warning: false
+
+!pip install pca
+```
+
+* Load data
+
+```{python ch2-exercise-pca-loaddata}
+#| warning: false
+
+from pca import pca
+import pandas as pd
+
+# Load the US Arrests data (available online)
+# Read the USArrests data directly from the GitHub raw URL
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/main/course_files/data/USArrests.csv"
+df = pd.read_csv(url, index_col=0)
+
+print("US Arrests Data (first 5 rows):")
+print(df.head())
+print("\nData shape:", df.shape)
+```
+
+<!-- code below is not used -->
+
+```{python ch2-exercise-pca-normalize-git}
+#| warning: false
+#| echo: false
+#| output: false
+#| eval: false
+
+from sklearn.preprocessing import StandardScaler
+
+scaler_standard = StandardScaler()
+df_scaled = scaler_standard.fit_transform(df)
+
+print("\nData shape after normalization:", df_scaled.shape)
+```
+
+* Normalize the data and perform PCA
+
+```{python ch2-pca-usarrests}
+#| warning: false
+
+model = pca(normalize=True)
+out = model.fit_transform(df)
+ax = model.biplot()
+```
+
+
+* Variance explained plots
+
+```{python ch2-exercise-pca-var}
+#| warning: false
+
+model.plot()
+```
+
+* 3D PCA biplots
+
+```{python ch2-exercise-pca-3d}
+#| warning: false
+
+model.biplot3d()
+```
+
+
+
+
+* Loadings
+
+*Recall*
+
+What is being plotted on the axes (PC1 and PC2) are the `scores`.
+
+The `scores` for each principal component are calculated as follows:
+
+$$
+PC_{1} = \alpha X + \beta Y + \gamma Z + .... 
+$$
+
+where $X$, $Y$ and $Z$ are the normalized *features*.
+
+The constants $\alpha$, $\beta$, $\gamma$ are determined by the PCA algorithm. They are called the `loadings`.
+
+
+```{python ch2-loadings-package}
+#| warning: false
+
+print(model.results)
+```
+
+
+
+## Exercise for normalization in PCA {#sec-pcanorm}
+
+::::: {#ex-title_pca .callout-exercise}
+
+#### exercise_pca_normalization
+
+{{< level 2 >}}
+
+Work in a group.
+
+* Try the same code above but now *without* normalisation.
+
+* What differences do you observe in PCA *with* and *without* normalization?
+
+
+:::::
+
+
+
+
+## Exercise (theoretical) {#sec-ex-theoretical}
+
+::::: {#ex-titletheor .callout-exercise}
+
+#### exercise_theoretical
+
+{{< level 2 >}}
+
+Break up into groups and discuss the following problem:
+
+1. Shown are biological samples with scores
+
+2. The features are genes
+
+* Why are `Sample 33` and `Sample 24` separated from the rest? What can we say about `Gene1`, `Gene 2`, `Gene 3` and `Gene 4`?
+
+* Why is `Sample 2` separated from the rest? What can we say about `Gene1`, `Gene 2`, `Gene 3` and `Gene 4`?
+
+* Can we treat `Sample 2` as an outlier? Why or why not? Argue your case.
+
+The PCA biplot is shown below:
+
+```{python ch2-trick-question}
+#| echo: false
+#| warning: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+# -----------------------------------------------------------------------------
+# 1) Loadings matrix (genes × PCs) exactly as given:
+loadings = np.array([
+    [-0.5358995,   0.4181809,  -0.3412327,  0.6492278],   # Gene1
+    [-0.5831836,   0.1879856,  -0.2681484, -0.7430748],   # Gene2
+    [-0.2781909,  -0.8728062,  -0.3780158,  0.1338773],   # Gene3
+    [-0.5434321,  -0.1673186,   0.8177779,  0.08902432],  # Gene4
+])
+genes = ['Gene1', 'Gene2', 'Gene3', 'Gene4']
+
+
+# -----------------------------------------------------------------------------
+# 2) Approximate PC2/PC3 scores from your biplot.
+#    Fill in all 50 samples by eyeballing their (x, y) positions on the plot.
+scores_dict = {
+    # highlighted points:
+    'Sample2':  (0.8,  2.1),
+    'Sample24': (2.2, -0.5),
+    'Sample33': (2.0, -0.4),
+    # a few others for context:
+    'Sample45': (1.2,  0.6),
+    'Sample40': (1.8, -0.1),
+    'Sample11': (-0.9, 0.0),
+    'Sample39': (0.0, -1.2),
+    'Sample28': (-0.7, 1.1),
+    'Sample21': (-1.1, -0.8),
+}
+
+sample_labels = list(scores_dict.keys())
+sample_scores = np.array([scores_dict[s] for s in sample_labels])
+
+
+# -----------------------------------------------------------------------------
+# 3) Plot PC2 vs PC3 biplot:
+fig, ax = plt.subplots(figsize=(8,8))
+
+# 3a) scatter the samples
+ax.scatter(sample_scores[:,0], sample_scores[:,1],
+           c='black', s=30, alpha=0.8)
+for i, lbl in enumerate(sample_labels):
+    ax.text(sample_scores[i,0], sample_scores[i,1], lbl,
+            fontsize=8, ha='center', va='center')
+
+# 3b) draw the gene loadings as red arrows
+scale = 3.0
+#for i, gene in enumerate(genes):
+#    x_load = loadings[i,1] * scale  # PC2 loading
+#    y_load = loadings[i,2] * scale  # PC3 loading
+#    ax.arrow(0, 0, x_load, y_load,
+#             color='red', width=0.004, head_width=0.08,
+#             length_includes_head=True)
+#    ax.text(x_load*1.1, y_load*1.1, gene,
+#            color='red', fontsize=12, fontweight='bold')
+
+# -----------------------------------------------------------------------------
+# 4) Styling
+ax.axhline(0, color='gray', linewidth=1)
+ax.axvline(0, color='gray', linewidth=1)
+ax.set_xlabel('PC2', fontsize=14)
+ax.set_ylabel('PC3', fontsize=14)
+#ax.set_title('PCA Biplot', fontsize=10)
+ax.set_aspect('equal', 'box')
+ax.grid(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+The table of loadings is shown below:
+
+```{python ch2-advanced-pca_loadings}
+#| echo: false
+#| warning: false
+
+pcs   = ['PC1', 'PC2', 'PC3', 'PC4']
+
+# 2) build a DataFrame
+df = pd.DataFrame(loadings, index=genes, columns=pcs)
+
+# 3) print it
+print(df.to_string(float_format="{:.6f}".format))
+```
+
+
+:::::
+<!-- end callout -->
+
+
+
+
+<!--
+## Exercise (advanced)
+
+Plot prettier *publication ready* plots for PCA.
+
+::: {.callout-tip}
+Look into the documentation available here for the [PCA package](https://erdogant.github.io/pca/pages/html/Examples.html).
+:::
+-->
+
+
+
+
+
+<!--
+## Clustering Example
+
+PCA is different to clustering where you are trying to find patterns in your data. We will encounter clustering later in the course.
+
+```{python}
+#| echo: false
+#| eval: false
+#| fig.cap: "A simple clustering"
+
+kmeans = KMeans(n_clusters=2, random_state=42)
+labels = kmeans.fit_predict(X)
+plt.scatter(X[:, 0], X[:, 1], c=labels)
+plt.title("KMeans Clustering")
+plt.show()
+```
+
+-->
+
+
+## 🧠 PCA vs. Other Techniques
+
+* PCA is **unsupervised** (no labels used)
+* Works best for **linear** relationships
+* Alternatives:
+
+  * t-SNE for nonlinear structures (we will encounter this in the next session)
+
+---
+
+## 🧬 In Practice: Tips for Biologists
+
+* Always **standardize** data before PCA
+* Be cautious interpreting PCs biologically: PCs are **mathematical constructs**
+
+
+
+
+::: {.callout-tip}
+## Summary
+
+- Need to normalize data before doing dimensionality reduction
+- PCA reduces dimensionality for visualization.
+- Clustering algorithms finds clusters in unlabeled data.
+- The goal of unsupervised learning is to find patterns and form hypotheses.
+:::
+
+
+## Resources
+
+[1] [Article on normalization on Wikipedia](https://en.wikipedia.org/wiki/Standard_score)
+
+[2] [ISLP book](https://www.statlearning.com/)
+
+[3] [Video lectures by the authors of the book Introduction to Statistical Learning in Python](https://www.youtube.com/playlist?list=PLoROMvodv4rNHU1-iPeDRH-J0cL-CrIda)
+
+[4] [Visual explanations of machine learning algorithms](https://mlu-explain.github.io)
+
+---

@@ -1,0 +1,466 @@
+---
+title: Refresher on Python
+---
+
+::: {.callout-tip}
+#### Learning Objectives
+
+- Refresher on Python
+:::
+<!-- end callout -->
+
+
+## Refresher on Python
+
+<!--
+If SSL error on Mac OS X,
+then 
+
+try in the Terminal
+
+open "/Applications/Python 3.10/Install Certificates.command"
+-->
+
+* See Python setup instructions here: [Python Installation](https://cambiotraining.github.io/ml-unsupervised/setup.html). 
+
+* Walkthrough of getting setup with [Google Colab](https://colab.research.google.com/) in the web browser.
+
+* Install Python packages
+
+```{python ch1-python-install}
+#| warning: false
+#| output: false
+
+!pip install pandas numpy scikit-learn seaborn matplotlib scanpy pca
+```
+
+* Loading data and data visualization
+
+_Note_: Here is an alternative way to read a file
+
+```python
+import pandas as pd
+import os
+# find out which directory is your current working directory
+os.getcwd()
+# now change directory to where your files are (my files are in the directory shown below)
+os.chdir("/Users/soumyabanerjee/soumya_cam_mac/teaching/ml-unsupervised/") 
+# now read the file
+diabates_data = pd.read_csv("course_files/data/diabetes_sample_data.csv")
+```
+
+
+```{python ch2-python-refresher}
+#| warning: false
+
+# 1. IMPORTING PACKAGES
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+
+# 2. READING DATA WITH PANDAS FROM GITHUB
+
+# GitHub URL for the diabetes data
+# Convert from GitHub web URL to raw data URL
+github_url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/main/course_files/data/diabetes_sample_data.csv"
+
+# Read CSV file directly from GitHub
+diabetes_data = pd.read_csv(github_url)
+
+# Display basic information about the data
+print("\nData shape:", diabetes_data.shape)
+print("\nFirst 5 rows:")
+print(diabetes_data.head())
+        
+print("\nBasic statistics:")
+print(diabetes_data.describe())
+
+# 3. PLOTTING WITH MATPLOTLIB
+
+# Plot 1: Histogram of Age
+plt.figure()
+plt.hist(diabetes_data['age'], bins=20, alpha=0.7)
+plt.title('Distribution of Age', fontsize=14, fontweight='bold')
+plt.xlabel('Age')
+plt.ylabel('Frequency')
+plt.grid(True, alpha=0.3)
+plt.savefig('age_distribution.png', dpi=300)
+plt.show()
+
+# 4. NUMPY
+a = np.array([17, 13, 78, 901])
+print("This is a numpy array:")
+print(a)
+print("Here is the mean/average:")
+print( np.mean(a) )
+```
+
+
+* You can also go through this [Introduction to Visualization in Python course](https://kavihshah.github.io/Intro-to-Python/materials/13-data-visualisation-with-matplotlib-and-seaborn.html)
+
+
+
+
+
+
+### Optional exercise on Python {#sec-pythonrefresher}
+
+::::: {#ex-title .callout-exercise}
+
+#### exercise_python
+
+{{< level 1 >}}
+
+Load the dataset from this GitHub URL:  
+
+https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/refs/heads/main/course_files/data/USArrests.csv  
+
+Save it to a variable called `crime_data` and display:
+
+- The shape of the data  
+- The first 3 rows  
+- Column names using `.columns`  
+
+
+ 
+:::: {.callout-answer collapse="true"}
+
+#### Simple data munging and visualization
+
+
+::: {.panel-tabset group="language"}
+
+
+## Python
+
+```{python ch2-refresher-python-ex1}
+#| warning: false
+
+import pandas as pd
+
+# Load the dataset
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/refs/heads/main/course_files/data/USArrests.csv"
+
+crime_data = pd.read_csv(url)
+
+# Display the shape of the data
+print("Shape of the dataset: ", crime_data.shape)
+
+# Display the first 3 rows
+print("\nFirst 3 rows: ")
+print(crime_data.head(3))
+
+# Display column names
+print("\nColumn names: ")
+print(crime_data.columns)
+```
+
+## R
+
+
+:::
+
+::::
+
+:::::
+
+
+
+
+### Optional exercise on Python {#sec-pythonrefresher2}
+
+::::: {#ex-title2 .callout-exercise}
+
+#### exercise_python_visualization
+
+{{< level 1 >}}
+
+Load the dataset from this GitHub URL:  
+
+https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/refs/heads/main/course_files/data/USArrests.csv  
+
+
+Histogram: Show the distribution of murders
+
+- Use `plt.hist()` with the `Murder` column  
+- Use 15 bins  
+- Add title: **"Distribution of Murder"**  
+- Add axis labels and grid  
+
+Remember to use `plt.show()` after each plot!  
+
+
+ 
+:::: {.callout-answer collapse="true"}
+
+#### Simple data visualization
+
+
+::: {.panel-tabset group="language"}
+
+
+## Python
+
+```{python ch2-refresher-python-ex1}
+#| warning: false
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the dataset
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/refs/heads/main/course_files/data/USArrests.csv"
+crime_data = pd.read_csv(url)
+
+# Draw histogram
+plt.figure()
+plt.hist(crime_data["Murder"], bins=15)
+plt.grid(True)
+plt.xlabel("Murder")
+plt.ylabel("Frequency")
+plt.title("Distribution of Murder")
+plt.show()
+```
+
+## R
+
+
+:::
+
+::::
+
+:::::
+
+
+
+
+
+
+### Optional exercise on Python {#sec-pythonrefresher4}
+
+::::: {#ex-title4 .callout-exercise}
+
+#### exercise_python_numpy
+
+{{< level 1 >}}
+
+Load the dataset from this GitHub URL:  
+
+https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/refs/heads/main/course_files/data/USArrests.csv  
+
+
+Calculate the mean/average number of murders in USA.
+
+ 
+:::: {.callout-answer collapse="true"}
+
+#### Simple numpy usage
+
+
+::: {.panel-tabset group="language"}
+
+
+## Python
+
+```{python ch2-refresher-python-ex1}
+#| warning: false
+
+import pandas as pd
+import numpy as np
+
+# Load the dataset
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/refs/heads/main/course_files/data/USArrests.csv"
+crime_data = pd.read_csv(url)
+
+# Draw histogram
+numpy_array_murders = crime_data["Murder"].to_numpy()
+
+print( np.mean(numpy_array_murders) )
+```
+
+## R
+
+
+:::
+
+::::
+
+:::::
+
+
+
+
+
+### Optional exercise on Python {#sec-pythonrefresher3}
+
+::::: {#ex-title3 .callout-exercise}
+
+#### exercise_python_data_munging_advanced
+
+{{< level 2 >}}
+
+Load the dataset from this GitHub URL:  
+
+https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/refs/heads/main/course_files/data/USArrests.csv  
+
+
+Find the state that has the highest number of murders.
+
+ 
+:::: {.callout-answer collapse="true"}
+
+#### Data munging (advanced)
+
+
+::: {.panel-tabset group="language"}
+
+
+## Python
+
+```{python ch2-refresher-python-ex1}
+#| warning: false
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the dataset
+url = "https://raw.githubusercontent.com/cambiotraining/ml-unsupervised/refs/heads/main/course_files/data/USArrests.csv"
+crime_data = pd.read_csv(url)
+
+# use groupby
+print(crime_data.groupby("State")["Murder"].mean().sort_values(ascending = False).head())
+
+# Alternative use idxmax() and loc()
+# arrests_data['Murder'].idxmax() → finds the index (row number) of the maximum value in the Murder column.
+# .loc[ ... , ['State', 'Murder']] → uses .loc[] to look up the row with the maximum murder rate and only show the State name and Murder value.
+print(crime_data.loc [crime_data["Murder"].idxmax(), ["State","Murder"] ])
+```
+
+## R
+
+
+:::
+
+::::
+
+:::::
+
+
+
+
+
+
+
+### Optional exercise on Python {#sec-pythonrefresher5}
+
+::::: {#ex-title5 .callout-exercise}
+
+#### exercise_python_numpy
+
+{{< level 2 >}}
+
+Fill in the blanks in the code below.
+
+```python
+import numpy as np
+
+# 1) Reproducibility
+np.random.seed(7)
+
+# 2) Make a 5x4 array of random numbers in [0, 1)
+X = np.random.rand(5, 4)
+
+# 3) Compute:
+# - mean of each column
+# - mean of each row
+# - overall mean
+col_means = ...
+row_means = ...
+overall_mean = ...
+
+print("X:\n", X)
+print("Column means:", col_means)
+print("Row means:", row_means)
+print("Overall mean:", overall_mean)
+
+# 4) Bonus: random integers from 0..99 (size=12). Compare mean to 49.5
+ints = np.random.randint(0, 100, size=12)
+ints_mean = ...
+print("Random integers:", ints)
+print("Integers mean:", ints_mean)
+```
+ 
+:::: {.callout-answer collapse="true"}
+
+#### Numpy (advanced)
+
+
+::: {.panel-tabset group="language"}
+
+
+## Python
+
+```{python ch2-refresher-python-ex1}
+#| warning: false
+
+import numpy as np
+
+# 1) Reproducibility
+np.random.seed(7)
+
+# 2) Make a 5x4 array of random numbers in [0, 1)
+X = np.random.rand(5, 4)
+
+# 3) Compute:
+# - mean of each column
+# - mean of each row
+# - overall mean
+col_means = X.mean(axis=0)
+row_means = X.mean(axis=1)
+overall_mean = X.mean()
+
+print("X:\n", X)
+print("Column means:", col_means)
+print("Row means:", row_means)
+print("Overall mean:", overall_mean)
+
+# 4) Bonus: random integers from 0..99 (size=12). Compare mean to 49.5
+ints = np.random.randint(0, 100, size=12)
+ints_mean = ints.mean()
+print("Random integers:", ints)
+print("Integers mean:", ints_mean)
+```
+
+## R
+
+
+:::
+
+::::
+
+:::::
+
+
+
+
+
+
+## Summary
+
+::: {.callout-tip}
+#### Key Points
+
+- A quick refresher on Python
+- Simple exercises (optional)
+:::
+<!-- end callout -->
+
+
+## Resources
+
+[1] [Course on data analysis using Python](https://cambiotraining.github.io/data-analysis-in-r-and-python/)
+
+[2] [Introduction to Visualization in Python course](https://kavihshah.github.io/Intro-to-Python/materials/13-data-visualisation-with-matplotlib-and-seaborn.html)
+
+[3] [Coursera courses on Python](https://www.coursera.org/specializations/python)

@@ -1,0 +1,1 @@
+I am designing teaching resources for teaching unsupervised learning to biologists. They have some very limited mathematical background and some experience in Python. Give me simple python code that does  
