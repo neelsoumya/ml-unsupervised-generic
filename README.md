@@ -59,6 +59,15 @@ git commit -m "Updated materials"
 git push
 ```
 
+* Change settings in github `settings`
+
+
+- Go to your repository
+- Click Settings → Actions → General
+- Scroll down to Workflow permissions
+- Select Read and write permissions
+- Click Save  
+
 * To generate presentations
 
 ```bash
