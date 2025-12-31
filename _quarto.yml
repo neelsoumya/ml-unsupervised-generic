@@ -57,7 +57,7 @@ book:
       - text: "{{< iconify fa6-brands bluesky size=lg title='Bluesky' >}}"
         href: https://bsky.app/profile/bioinfocambs.bsky.social
       - text: "{{< iconify fa6-brands mastodon size=lg title='Mastodon' >}}"
-        href: https://genomic.social/@BioInfoCambs
+        href: https://www.linkedin.com/in/soumya-banerjee-46a86133/
       - text: "{{< iconify mdi web size=lg title='Website' >}}"
         href: https://neelsoumya.github.io/
     title: "Applied Unsupervised Machine Learning"
