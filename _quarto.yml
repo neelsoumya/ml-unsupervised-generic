@@ -47,19 +47,19 @@ book:
     center: |
       Licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 
       ![](https://creativecommons.org/images/deed/cc_icon_black_x2.png){width=25px} 
-      Cambridge Research Informatics Training
+      Soumya Banerjee
   navbar:
     pinned: true
     logo: "_extensions/cambiotraining/courseformat/img/university_crest_reversed.png"
     right:
-      - text: "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}"
-        href: https://github.com/cambiotraining/ml-unsupervised
-      - text: "{{< iconify fa6-brands bluesky size=lg title='CRIT Bluesky' >}}"
+      - text: "{{< iconify fa6-brands github size=lg title='GitHub' >}}"
+        href: https://github.com/neelsoumya/ml-unsupervised-generic
+      - text: "{{< iconify fa6-brands bluesky size=lg title='Bluesky' >}}"
         href: https://bsky.app/profile/bioinfocambs.bsky.social
-      - text: "{{< iconify fa6-brands mastodon size=lg title='CRIT Mastodon' >}}"
+      - text: "{{< iconify fa6-brands mastodon size=lg title='Mastodon' >}}"
         href: https://genomic.social/@BioInfoCambs
-      - text: "{{< iconify mdi web size=lg title='CRIT Website' >}}"
-        href: https://bioinfotraining.bio.cam.ac.uk/
+      - text: "{{< iconify mdi web size=lg title='Website' >}}"
+        href: https://neelsoumya.github.io/
     title: "Applied Unsupervised Machine Learning"
   chapters:
     - part: "Welcome"
